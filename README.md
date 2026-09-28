@@ -15,8 +15,8 @@ Resolume machine before the next one starts.
 
 | Stage | State |
 |---|---|
-| 1. Resolume spike | Built and measured on a local Arena 7.24.1. Findings in `docs/RESOLUME_NOTES.md`. Waiting on the show PC and VLAN 131 runs. |
-| 2. Core | not started |
+| 1. Resolume spike | Built and measured on a local Arena 7.24.1. Findings in `docs/RESOLUME_NOTES.md`. Show PC and VLAN 131 probe runs still to do. |
+| 2. Core | Built. Settings, logging, connection manager with 2 s reconnect, song library with safe writes and conflict detection, song-to-clip matching with path mappings. 18 unit tests plus an Arena kill-and-restart test pass locally. Needs the Stage 2 checks on the show PC. |
 | 3. Show mode with cut | not started |
 | 4. Queue | not started |
 | 5. Edit mode | not started |
@@ -27,13 +27,51 @@ Resolume machine before the next one starts.
 
 ```
 SegmentDeck.sln
+src/
+  SegmentDeck.Core/      Everything that is not UI: settings, logging, Resolume connection, library, matching, ISegmentController.
+  SegmentDeck.App/       The WPF app. At Stage 2 it is a diagnostics shell (status bar, live state, matches, settings, log).
+tests/
+  SegmentDeck.Core.Tests/  xunit tests, including recorded Arena messages as fixtures and an opt-in Arena reconnect test.
+samples/library/         A tiny library with a matching song, an unavailable song and a broken file.
 spike/
-  SegmentDeck.Spike/     Stage 1 test window (WPF). Throwaway, but its Resolume/ folder is the seed for Stage 2.
+  SegmentDeck.Spike/     Stage 1 test window (WPF). Throwaway.
   SegmentDeck.Probe/     Stage 1 console probe. Runs the measurement checklist unattended and writes a report.
 docs/
   RESOLUME_NOTES.md      What Arena 7.24 actually does on the wire, with numbers. Read this before touching the integration.
   probe-reports/         Saved probe output per machine.
 ```
+
+## Build, test, run
+
+```bash
+dotnet build SegmentDeck.sln -c Release
+```
+
+```bash
+dotnet test tests/SegmentDeck.Core.Tests
+```
+
+The Arena reconnect test only runs when `SEGMENTDECK_ARENA_TESTS=1` is set and Arena is installed. It kills and
+relaunches Arena, so never run it on the show PC during a service.
+
+Publish a self-contained folder to copy to another PC (no .NET install needed there):
+
+```bash
+dotnet publish src/SegmentDeck.App/SegmentDeck.App.csproj -c Release -o publish/SegmentDeck
+```
+
+Run `publish/SegmentDeck/SegmentDeck.exe`. On first start it uses `127.0.0.1:8080` and creates
+`Documents\SegmentDeck Library`. Settings live in `%AppData%\SegmentDeck\settings.json`,
+logs in `%AppData%\SegmentDeck\logs\` (daily files, kept 14 days).
+
+### Stage 2 checks on the show PC
+
+1. Start the app with Resolume running: the light goes green and the LIVE panel lists the composition.
+2. Kill Resolume and start it again. The light goes amber, then green again on its own, and the composition is re-read.
+3. On the remote PC, unplug the network for 30 seconds. Same result.
+4. Copy `samples/library/songs/broken-example.json` into your library's `songs` folder and press Refresh: it appears
+   as a warning, everything else still loads.
+5. Move a song's clip to a different column in Resolume: the Clip column in the matches table follows it.
 
 ## Requirements
 

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "a1b2c3d4-0000-4000-8000-000000000001",
+  "title": "Shout For Joy",
+  "artist": "",
+  "clip": {
+    "filePath": "C:\\Users\\David\\Downloads\\Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha.mov",
+    "fileName": "Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha.mov",
+    "clipName": "Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha"
+  },
+  "durationMs": 195240,
+  "segments": [
+    { "id": "seg-intro", "name": "Intro", "startMs": 0, "color": "#8E8E93", "lyric": "" },
+    { "id": "seg-v1", "name": "Verse 1", "startMs": 12000, "color": "#4A90D9", "lyric": "First line of verse one" },
+    { "id": "seg-ch1", "name": "Chorus", "startMs": 48000, "color": "#F5A623", "lyric": "Shout for joy" },
+    { "id": "seg-v2", "name": "Verse 2", "startMs": 78000, "color": "#4A90D9", "lyric": "First line of verse two" },
+    { "id": "seg-ch2", "name": "Chorus", "startMs": 108000, "color": "#F5A623", "lyric": "Shout for joy" },
+    { "id": "seg-br", "name": "Bridge", "startMs": 138000, "color": "#BD10E0", "lyric": "Bridge first line" },
+    { "id": "seg-ch3", "name": "Chorus", "startMs": 162000, "color": "#F5A623", "lyric": "Shout for joy" },
+    { "id": "seg-out", "name": "Outro", "startMs": 186000, "color": "#8E8E93", "lyric": "" }
+  ],
+  "updatedAt": "2026-09-28T12:00:00Z"
+}

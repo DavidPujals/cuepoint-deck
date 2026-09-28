@@ -33,7 +33,9 @@ On connect the server sends three messages, in this order, within ~20 ms:
 3. `{"type":"effects_update","value":{...}}`
 
 The composition message is **re-sent whenever the structure changes** (a file loaded into a slot, layers or
-columns added). It is *not* re-sent for plain parameter changes.
+columns added) **and also every time a clip connects or disconnects** (seen in the Stage 2 app log: ~110 KB per
+launch). It is *not* re-sent for plain parameter changes such as position. Parameter ids inside it stay the same
+across these re-sends, so subscriptions survive; the app just re-parses and rebuilds its song matches.
 
 Client → server (all confirmed working):
 
@@ -168,6 +170,13 @@ With `playmodeaway` = **Relative**: connect resets to 0 (plus an offset). Not us
 3. Order G is the no-side-effects alternative if F ever misbehaves: one 10 ms window where the start frame might be visible.
 
 Launching a song from segment 1 (0 ms) needs no seek at all; just connect.
+
+## 6b. Reconnect behaviour (Stage 2 integration test, same PC)
+
+Killing Arena while connected: the socket reports closed within ~200 ms. Retrying every 2 s, the app reconnected
+~5 s after Arena was relaunched, before Arena had finished loading its composition: the first composition message
+after a cold start can have an empty name and empty slots, and Arena re-sends the composition when the real one loads.
+Treat every composition message as authoritative and rebuild matches each time; do not assume the first one is final.
 
 ## 7. Clip matching data available
 
