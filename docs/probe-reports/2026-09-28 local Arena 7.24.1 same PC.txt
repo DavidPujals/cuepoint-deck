@@ -1,0 +1,187 @@
+
+== Segment Deck probe - 2026-09-28 22:20:54 - target 127.0.0.1:8080 ==
+REST /product  Arena 7.24.1 rev 61371
+WS connected in 9 ms
+    [first 'composition' message, 122,727 bytes] {"name":{"valuetype":"ParamString","id":1790598826638,"value":"Test NovaCon"},"selected":{"id":1790598826639,"valuetype":"ParamTrigger","value":false},"bypassed":{"valuetype":"ParamBoolean","id":1790598826649,"value":false},"master":{"id":1790598826641,"valuetype":"ParamRange","min":0.0,"max":1.0,"in":0.0,"out":1.0,"value":1.0},"speed":{"id":1790598825926,"valuetype":"ParamRange","min":0.0,"max":10.0,"in":0.0,"out":10.0,"value":0.9999999999998709},"cliptarget":{"id":1790598826655,"valuetype":"Pa.
+    [first 'sources_update' message, 5,689 bytes] {"value":{"audio":[],"video":[{"idstring":"c_35de2952-eebe-4238-ac4a-2e9864da6621","name":"Abstract Field","presets":[{"id":1790598828235,"name":"Big Sweepers"},{"id":1790598828236,"name":"Dot Dot Dot"},{"id":1790598828237,"name":"In & Out Fader"},{"id":1790598828238,"name":"Smoke Storm"},{"id":1790598828239,"name":"Thin Lines"},{"id":1790598828240,"name":"Wavey"}]},{"idstring":"6980259688","name":"Blank","presets":[]},{"idstring":"CITY-CG (CG Lyrics)","name":"CITY-CG (CG Lyrics)","presets":[]},.
+    [first 'effects_update' message, 11,506 bytes] {"value":{"audio":[{"idstring":"Bitcrusher","name":"Bitcrusher","presets":[]},{"idstring":"Distortion","name":"Distortion","presets":[]},{"idstring":"EQ-3","name":"EQ-3","presets":[]},{"idstring":"Flanger","name":"Flanger","presets":[]},{"idstring":"HighPass","name":"HighPass","presets":[]},{"idstring":"LowPass","name":"LowPass","presets":[]}],"video":[{"idstring":"c_c7106a57-878e-429a-ae83-313d07e6d943","name":"Acuarela","presets":[]},{"idstring":"A101","name":"Add Subtract","presets":[{"id":17.
+composition message arrived +13 ms after connect, 122,727 bytes
+no sources_update within 3 s
+no effects_update within 3 s
+
+== Composition ==
+name="Test NovaCon" layers=3 slots=27 withContent=1
+  L1 C1 id=1769995378214 "Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha" connected="Connected" file="C:\Users\David\Downloads\Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha.mov" exists=True dur=195240 ms fps=25 pos[0..195239.97916666666] posId=1790598829047 transport=Timeline trigger=Composition Determined faderstart=Layer Determined beatsnap=None playmode=Loop
+'connected' options: Empty | Disconnected | Previewing | Connected | Connected & previewing
+
+== Target: L1 C1 Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha (id 1769995378214) ==
+position param: id=1790598829047 min=0 max=195239.97916666666  interpreting as ms (max ÷ duration_ms); file duration 195240 ms, transport.controls.duration value=195.23997916666667 max=604800
+speed param: id=1790598829077 value=1 [0..10]
+
+== Path probe (WS 'get' on each path; reply or error) ==
+    [first 'parameter_get' message, 230 bytes] {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"parameter_get"}
+  get /composition/layers/1/clips/1/connected                         {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"param.
+  get /composition/layers/1/clips/1/connect                           {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"param.
+  get /composition/layers/1/clips/1/name                              {"valuetype":"ParamString","id":1790598826947,"value":"Copy of SHOUT FOR JOY 169 V2_DXV Normal Quality No Alpha","path":"/composition/layers/1/clips/1/name","type":"parameter_get"}
+    [first '(untyped)' message, 92 bytes] {"path":"/composition/layers/1/clips/1/transport/position","error":"Invalid parameter path"}
+  get /composition/layers/1/clips/1/transport/position                {"path":"/composition/layers/1/clips/1/transport/position","error":"Invalid parameter path"}
+    [error reply] {"path":"/composition/layers/1/clips/1/transport/controls/speed","error":"Invalid parameter path"}
+  get /composition/layers/1/clips/1/transport/controls/speed          {"path":"/composition/layers/1/clips/1/transport/controls/speed","error":"Invalid parameter path"}
+    [error reply] {"path":"/composition/layers/1/clips/1/transport/controls/playmode","error":"Invalid parameter path"}
+  get /composition/layers/1/clips/1/transport/controls/playmode       {"path":"/composition/layers/1/clips/1/transport/controls/playmode","error":"Invalid parameter path"}
+  get /parameter/by-id/1790598829047                                  {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":0.0,"out":195239.97916666666,"value":145965.00001898603,"path":"/composition/layers/1/clips/1/transport/position","type":"parameter_get.
+  get /parameter/by-id/1790598826956                                  {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"param.
+  get /parameter/by-id/1790598829077                                  {"id":1790598829077,"valuetype":"ParamRange","min":0.0,"max":10.0,"in":0.0,"out":10.0,"value":1.0,"path":"/composition/layers/1/clips/1/transport/position/behaviour/speed","type":"parameter_get"}
+
+== Subscriptions (by parameter id) ==
+    [first 'parameter_subscribed' message, 237 bytes] {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"parameter_subscribed"}
+parameter_subscribed (connected) raw: {"value":"Connected","valuetype":"ParamState","options":["Empty","Disconnected","Previewing","Connected","Connected & previewing"],"index":3,"id":1790598826956,"path":"/composition/layers/1/clips/1/connect","type":"parameter_subscribed"}
+parameter_subscribed (position) raw: {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":0.0,"out":195239.97916666666,"value":145965.00001898603,"path":"/composition/layers/1/clips/1/transport/position","type":"parameter_subscribed"}
+parameter_subscribed (speed) raw: {"id":1790598829077,"valuetype":"ParamRange","min":0.0,"max":10.0,"in":0.0,"out":10.0,"value":1.0,"path":"/composition/layers/1/clips/1/transport/position/behaviour/speed","type":"parameter_subscribed"}
+
+== Connect ==
+    [first 'parameter_update' message, 225 bytes] {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":0.0,"out":195239.97916666666,"value":145975.00001899072,"path":"/composition/layers/1/clips/1/transport/position","type":"parameter_update"}
+WS trigger /composition/layers/1/clips/1/connect: no connected update within 3 s (was "Connected")
+first position update +3001 ms after connect. Raw: {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":0.0,"out":195239.97916666666,"value":2999.979166661778,"path":"/composition/layers/1/clips/1/transport/position","type":"parameter_update"}
+
+== Position update rate (10 s at current speed) ==
+  1000 updates in 10.0 s = 100.0 Hz; interval avg 10.0 / median 10.0 / min 8.2 / max 11.8 ms; playhead advanced 9.99 s in 9.99 s (ratio 1.00)
+  first raw values: 3010.0ms, 3020.0ms, 3030.0ms, 3040.0ms
+
+== Position stream while paused (playdirection param id=1790598829073, was ">"; set to "||" for 2 s) ==
+  parameter_subscribed (playdirection) raw: {"id":1790598829073,"valuetype":"ParamChoice","value":">","index":2,"options":["<","||",">"],"path":"/composition/layers/1/clips/1/transport/position/behaviour/playdirection","type":"parameter_subscribed"}
+    [first 'parameter_set' message, 198 bytes] {"id":1790598829073,"valuetype":"ParamChoice","value":">","index":2,"options":["<","||",">"],"path":"/composition/layers/1/clips/1/transport/position/behaviour/playdirection","type":"parameter_set"}
+  playdirection update: "||" (+19092 ms)
+  no position updates at all while paused (stream is silent when the playhead is still)
+  playdirection restored to ">"
+
+== Position stream after the layer is cleared (clip Disconnected) for 2 s ==
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+21602 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  200 position update(s) in 2 s while disconnected; first 14140 ms, last 16130 ms (transport keeps running while disconnected: YES)
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+24409 ms)
+  clip reconnected
+
+== Position update rate at speed 2 (5 s) ==
+  500 updates in 5.0 s = 100.0 Hz; interval avg 10.0 / median 10.0 / min 9.4 / max 10.6 ms; playhead advanced 9.98 s in 4.99 s (ratio 2.00)
+  speed restored to 1
+
+== Seek latency: WS set /parameter/by-id (10 seeks, tolerance 1 frame = 40.0 ms) ==
+  #1  129.105s  send 0.2 ms  confirmed +0.3 ms  (off +0.0 ms, first update +0.3 ms)
+  #2  27.229s  send 0.2 ms  confirmed +0.4 ms  (off +0.0 ms, first update +0.4 ms)
+  #3  24.255s  send 0.2 ms  confirmed +0.5 ms  (off +0.0 ms, first update +0.5 ms)
+  #4  101.019s  send 0.3 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.6 ms)
+  #5  32.548s  send 0.3 ms  confirmed +0.5 ms  (off +0.0 ms, first update +0.5 ms)
+  #6  50.743s  send 0.2 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.6 ms)
+  #7  139.985s  send 0.2 ms  confirmed +0.4 ms  (off +0.0 ms, first update +0.4 ms)
+  #8  99.117s  send 0.2 ms  confirmed +0.5 ms  (off +0.0 ms, first update +0.5 ms)
+  #9  33.556s  send 0.3 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.6 ms)
+  #10  147.104s  send 0.4 ms  confirmed +0.7 ms  (off +0.0 ms, first update +0.7 ms)
+  confirmed 10/10: min 0.3 / avg 0.5 / max 0.7 ms; landing offset avg +0.0 ms, worst 0.0 ms
+
+== Seek latency: WS set logical path (3 seeks, tolerance 1 frame = 40.0 ms) ==
+    [error reply] {"path":"/composition/layers/1/clips/1/transport/position","error":"Invalid parameter path"}
+  #1  129.105s  send 0.2 ms  NOT confirmed in 1.5 s (last off +19909.0 ms, 150 updates)
+    [error reply] {"path":"/composition/layers/1/clips/1/transport/position","error":"Invalid parameter path"}
+  #2  27.229s  send 0.2 ms  NOT confirmed in 1.5 s (last off +123685.0 ms, 150 updates)
+    [error reply] {"path":"/composition/layers/1/clips/1/transport/position","error":"Invalid parameter path"}
+  #3  24.255s  send 0.1 ms  NOT confirmed in 1.5 s (last off +128559.0 ms, 150 updates)
+
+== Seek latency: REST PUT /parameter/by-id (5 seeks, tolerance 1 frame = 40.0 ms) ==
+  #1  129.105s  send 1.5 ms  confirmed +1.4 ms  (off +0.0 ms, first update +1.4 ms)
+  #2  27.229s  send 0.6 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.6 ms)
+  #3  24.255s  send 0.6 ms  confirmed +1.2 ms  (off +0.0 ms, first update +1.2 ms)
+  #4  101.019s  send 0.5 ms  confirmed +0.5 ms  (off +0.0 ms, first update +0.5 ms)
+  #5  32.548s  send 0.6 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.2 ms)
+  confirmed 5/5: min 0.5 / avg 0.9 / max 1.4 ms; landing offset avg +0.0 ms, worst 0.0 ms
+
+== Seek latency: REST PUT clip (partial body) (3 seeks, tolerance 1 frame = 40.0 ms) ==
+  #1  129.105s  send 3.3 ms  confirmed +4.0 ms  (off +0.0 ms, first update +4.0 ms)
+  #2  27.229s  send 0.5 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.3 ms)
+  #3  24.255s  send 0.6 ms  confirmed +0.6 ms  (off +0.0 ms, first update +0.6 ms)
+  confirmed 3/3: min 0.6 / avg 1.7 / max 4.0 ms; landing offset avg +0.0 ms, worst 0.0 ms
+
+== Connect-and-seek order (clip cleared from the layer before each run, target 60 s or mid-clip) ==
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+43294 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  A: WS trigger connect, then WS set position immediately:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+44103 ms)
+    position updates: +1ms=60.000s  +6ms=60.010s  +16ms=0.000s  +16ms=0.010s  +25ms=0.020s  +36ms=0.030s  +46ms=0.040s  +56ms=0.050s  +66ms=0.060s  +76ms=0.070s  +85ms=0.080s  +96ms=0.090s  +106ms=0.100s  +116ms=0.110s  .  +1476ms=1.470s  +1486ms=1.480s  +1496ms=1.490s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+45603 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  B: WS set position on the disconnected clip, then WS trigger connect:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+46460 ms)
+    position updates: +1ms=60.000s  +7ms=60.010s  +17ms=60.020s  +27ms=60.030s  +37ms=60.040s  +47ms=60.050s  +57ms=0.000s  +57ms=0.010s  +67ms=0.020s  +77ms=0.030s  +87ms=0.040s  +97ms=0.050s  +107ms=0.060s  +117ms=0.070s  .  +1527ms=1.480s  +1537ms=1.490s  +1547ms=1.500s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+47960 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  C: WS trigger connect, wait 100 ms, WS set position:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+48770 ms)
+    position updates: +9ms=0.000s  +9ms=0.010s  +20ms=0.020s  +30ms=0.030s  +40ms=0.040s  +50ms=0.050s  +61ms=0.060s  +70ms=0.070s  +80ms=0.080s  +90ms=0.090s  +100ms=0.100s  +100ms=60.000s  +110ms=60.010s  +120ms=60.020s  .  +1580ms=61.480s  +1590ms=61.490s  +1600ms=61.500s
+    RESULT: settled at target +100 ms after start; before that the transport sat near 0 for 11 update(s) spanning 91 ms (clip start likely visible for about that long)
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+50367 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  D: WS trigger connect, wait for 'connected' update, then WS set position:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+51173 ms)
+    position updates: +3ms=62.310s  +6ms=60.000s  +13ms=0.000s  +13ms=0.010s  +23ms=0.020s  +33ms=0.030s  +43ms=0.040s  +53ms=0.050s  +63ms=0.060s  +73ms=0.070s  +83ms=0.080s  +93ms=0.090s  +103ms=0.100s  +113ms=0.110s  .  +1483ms=1.480s  +1493ms=1.490s  +1503ms=1.500s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+52682 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  B2: WS set position on the disconnected clip, wait 300 ms, then WS trigger connect:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+53790 ms)
+    position updates: +1ms=60.000s  +7ms=60.010s  +17ms=60.020s  +27ms=60.030s  +37ms=60.040s  +47ms=60.050s  +57ms=60.060s  +67ms=60.070s  +77ms=60.080s  +87ms=60.090s  +97ms=60.100s  +107ms=60.110s  +117ms=60.120s  +127ms=60.130s  .  +1777ms=1.480s  +1787ms=1.490s  +1797ms=1.500s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+55289 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  E: REST POST connect, then REST PUT position by-id:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+56097 ms)
+    position updates: +1ms=2.310s  +2ms=60.000s  +11ms=0.000s  +11ms=0.010s  +21ms=0.020s  +31ms=0.030s  +41ms=0.040s  +51ms=0.050s  +61ms=0.060s  +71ms=0.070s  +81ms=0.080s  +91ms=0.090s  +101ms=0.100s  +111ms=0.110s  .  +1481ms=1.480s  +1491ms=1.490s  +1501ms=1.500s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+57597 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  G: WS trigger connect, wait for the position RESET update (value < 1 s), then WS set position:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+58402 ms)
+    reset update seen at +13.5 ms (value 0), seek sent at +13.7 ms
+    position updates: +3ms=2.310s  +14ms=0.000s  +14ms=0.010s  +14ms=60.000s  +23ms=60.010s  +34ms=60.020s  +43ms=60.030s  +53ms=60.040s  +63ms=60.050s  +73ms=60.060s  +83ms=60.070s  +93ms=60.080s  +103ms=60.090s  +114ms=60.100s  .  +1494ms=61.480s  +1503ms=61.490s  +1514ms=61.500s
+    RESULT: settled at target +14 ms after start; before that the transport sat near 0 for 2 update(s) spanning 1 ms (clip start likely visible for about that long)
+  clip playmodeaway param id=1790598829075, current value "Restart"
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+60019 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  H-Continue: playmodeaway="Continue": WS set position on the disconnected clip, wait 50 ms, then WS trigger connect:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+60875 ms)
+    position updates: +1ms=60.000s  +10ms=60.010s  +20ms=60.020s  +30ms=60.030s  +40ms=60.040s  +50ms=60.050s  +60ms=60.060s  +70ms=60.070s  +80ms=60.080s  +90ms=60.090s  +100ms=60.100s  +110ms=60.110s  +120ms=60.120s  +130ms=60.130s  .  +1520ms=61.520s  +1530ms=61.530s  +1540ms=61.540s
+    RESULT: settled at target +1 ms after start; the transport never reported the clip start (no flash expected)
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+62378 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  I-Continue: playmodeaway="Continue": WS trigger connect, then WS set position immediately:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+63182 ms)
+    position updates: +1ms=60.000s  +2ms=60.010s  +12ms=60.020s  +22ms=60.030s  +32ms=60.040s  +42ms=60.050s  +52ms=60.060s  +62ms=60.070s  +72ms=60.080s  +82ms=60.090s  +92ms=60.100s  +102ms=60.110s  +112ms=60.120s  +122ms=60.130s  .  +1472ms=61.480s  +1482ms=61.490s  +1492ms=61.500s
+    RESULT: settled at target +1 ms after start; the transport never reported the clip start (no flash expected)
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+64783 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  H-Relative: playmodeaway="Relative": WS set position on the disconnected clip, wait 50 ms, then WS trigger connect:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+65638 ms)
+    position updates: +0ms=60.000s  +8ms=60.010s  +18ms=60.020s  +28ms=60.030s  +38ms=60.040s  +48ms=60.050s  +58ms=0.010s  +68ms=0.020s  +78ms=0.030s  +88ms=0.040s  +98ms=0.050s  +108ms=0.060s  +118ms=0.070s  +128ms=0.080s  .  +1528ms=1.480s  +1538ms=1.490s  +1548ms=1.500s
+    RESULT: never settled within 3 frames of the target
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+67141 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  I-Relative: playmodeaway="Relative": WS trigger connect, then WS set position immediately:
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+67948 ms)
+    position updates: +0ms=60.000s  +9ms=0.010s  +19ms=0.020s  +29ms=0.030s  +39ms=0.040s  +49ms=0.050s  +59ms=0.060s  +69ms=0.070s  +80ms=0.080s  +89ms=0.090s  +99ms=0.100s  +109ms=0.110s  +119ms=0.120s  +129ms=0.130s  .  +1480ms=1.480s  +1489ms=1.490s  +1499ms=1.500s
+    RESULT: never settled within 3 frames of the target
+  playmodeaway restored to "Restart"
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+69549 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  F: REST PUT position 'in' point = target, then WS trigger connect (in restored to 0 after 700 ms):
+    PUT in=60000  HTTP 204; param now: {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":60000.0,"out":195239.97916666666,"value":2409.9791666628844}
+    [connected update] /composition/layers/1/clips/1/connect  "Connected" (+70407 ms)
+    restored in=0  HTTP 204; param now: {"id":1790598829047,"valuetype":"ParamRange","min":0.0,"max":195239.97916666666,"in":0.0,"out":195239.97916666666,"value":60699.979166666504}
+    position updates: +1ms=2.410s  +11ms=60.010s  +21ms=60.020s  +31ms=60.030s  +41ms=60.040s  +51ms=60.050s  +61ms=60.000s  +61ms=60.010s  +71ms=60.020s  +81ms=60.030s  +91ms=60.040s  +101ms=60.050s  +111ms=60.060s  +121ms=60.070s  .  +2231ms=62.180s  +2241ms=62.190s  +2251ms=62.200s
+    RESULT: settled at target +11 ms after start; the transport never reported the clip start (no flash expected)
+    [connected update] /composition/layers/1/clips/1/connect  "Disconnected" (+72607 ms)
+  layer 1 cleared (HTTP 204)  clip state "Disconnected"
+  layer left cleared (as found, if nothing was playing before)
+
+== Done ==
+Report written to C:\Users\David\AppData\Local\Temp\claude\D--3--Nova-Church-4--Claude-Code-Resolume-Cuepoints\90caeeb2-b5f2-46e4-902a-52a17b8ed2f4\scratchpad\probe-20260928-222054.txt
