@@ -13,7 +13,6 @@ using SegmentDeck.Core.Analysis;
 using SegmentDeck.Core.Library;
 using SegmentDeck.Core.Logging;
 using SegmentDeck.Core.Matching;
-using SegmentDeck.Core.Playback;
 using SegmentDeck.Core.Resolume;
 
 namespace SegmentDeck.App.ViewModels;
@@ -28,6 +27,7 @@ public partial class SegmentEditItem : ObservableObject
     public string Name { get => Segment.Name; set { if (Segment.Name == value) return; Segment.Name = value; OnPropertyChanged(); _owner.MarkDirty(); } }
     public string Lyric { get => Segment.Lyric; set { if (Segment.Lyric == value) return; Segment.Lyric = value; OnPropertyChanged(); _owner.MarkDirty(); } }
     public string Color { get => Segment.Color; set { if (Segment.Color == value) return; Segment.Color = value; OnPropertyChanged(); _owner.MarkDirty(); } }
+
     public long StartMs
     {
         get => Segment.StartMs;
@@ -36,16 +36,47 @@ public partial class SegmentEditItem : ObservableObject
             var clamped = Math.Clamp(value, 0, Math.Max(0, _owner.DurationMs));
             if (Segment.StartMs == clamped) return;
             Segment.StartMs = clamped;
-            OnPropertyChanged(); OnPropertyChanged(nameof(StartText));
+            if (Segment.EndMs is long e && e <= clamped) Segment.EndMs = null;
+            RaiseTimes();
             _owner.MarkDirty();
             _owner.Resort();
             _owner.OnSegmentStartChanged(this);
         }
     }
-    public string StartText
+
+    /// <summary>Optional end point. Null means "runs until the next segment".</summary>
+    public long? EndMs
     {
-        get => SegmentController.Fmt(Segment.StartMs);
-        set { if (TryParseTime(value, out var ms)) StartMs = ms; else OnPropertyChanged(); }
+        get => Segment.EndMs;
+        set
+        {
+            long? v = value is long e ? Math.Clamp(e, Segment.StartMs + 1, Math.Max(Segment.StartMs + 1, _owner.DurationMs)) : null;
+            if (Segment.EndMs == v) return;
+            Segment.EndMs = v;
+            RaiseTimes();
+            _owner.MarkDirty();
+            _owner.OnSegmentEndChanged(this);
+        }
+    }
+
+    public bool HasEnd => Segment.EndMs is not null;
+    public string StartText { get => Timecode.Format(Segment.StartMs, _owner.Fps); set { if (Timecode.TryParse(value, _owner.Fps, out var ms)) StartMs = ms; else OnPropertyChanged(); } }
+    public string EndText
+    {
+        get => Segment.EndMs is long e ? Timecode.Format(e, _owner.Fps) : "";
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) { EndMs = null; return; }
+            if (Timecode.TryParse(value, _owner.Fps, out var ms)) EndMs = ms; else OnPropertyChanged();
+        }
+    }
+    public string RangeText => HasEnd ? $"{StartText} → {EndText}" : StartText;
+
+    public void RaiseTimes()
+    {
+        OnPropertyChanged(nameof(StartMs)); OnPropertyChanged(nameof(StartText));
+        OnPropertyChanged(nameof(EndMs)); OnPropertyChanged(nameof(EndText));
+        OnPropertyChanged(nameof(HasEnd)); OnPropertyChanged(nameof(RangeText));
     }
 
     [ObservableProperty] private BitmapImage? _thumb;
@@ -61,21 +92,6 @@ public partial class SegmentEditItem : ObservableObject
         ThumbStatus = Segment.Thumb is null ? "no thumbnail yet" : ThumbNeedsUpdate ? "thumbnail out of date" : "";
         OnPropertyChanged(nameof(ThumbNeedsUpdate));
     }
-
-    public static bool TryParseTime(string text, out long ms)
-    {
-        ms = 0;
-        text = text.Trim();
-        if (text.Length == 0) return false;
-        double total = 0;
-        foreach (var part in text.Split(':'))
-        {
-            if (!double.TryParse(part, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) return false;
-            total = total * 60 + v;
-        }
-        ms = (long)Math.Round(total * 1000);
-        return true;
-    }
 }
 
 public sealed class FilmstripFrame
@@ -83,7 +99,8 @@ public sealed class FilmstripFrame
     public required int Index { get; init; }
     public required double TimeMs { get; init; }
     public required string Path { get; init; }
-    public string TimeText => SegmentController.Fmt(TimeMs);
+    public required double Fps { get; init; }
+    public string TimeText => Timecode.Format(TimeMs, Fps);
     public BitmapImage? Image => ThumbCache.Get(Path, 192);
 }
 
@@ -113,6 +130,11 @@ public partial class EditViewModel : ObservableObject
     private Song? _song;
     private bool _isNew;
     private CancellationTokenSource? _filmstripCts;
+    private CancellationTokenSource? _exactFrameCts;
+    private CancellationTokenSource? _suggestCts;
+    private string? _localSourceFile;
+    private string? _filmstripDir;
+    private bool _suppressSelect;
 
     public ObservableCollection<SongListItem> Songs { get; } = new();
     [ObservableProperty] private SongListItem? _selectedSongItem;
@@ -128,6 +150,7 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private bool _isDirty;
     [ObservableProperty] private string _saveStatusText = "";
     public long DurationMs => _song?.DurationMs ?? 0;
+    public double Fps => _song?.Fps is > 0 and var f ? f : Timecode.DefaultFps;
 
     public ObservableCollection<SegmentEditItem> Segments { get; } = new();
     [ObservableProperty] private SegmentEditItem? _selectedSegment;
@@ -138,43 +161,28 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private bool _hasDrafts;
     [ObservableProperty] private bool _isSuggesting;
     [ObservableProperty] private string _suggestStatus = "";
-    private CancellationTokenSource? _suggestCts;
 
     // ---- Resolume playhead
     [ObservableProperty] private bool _playheadAvailable;
-    [ObservableProperty] private string _playheadText = "--:--.---";
+    [ObservableProperty] private string _playheadText = "--:--:--:--";
     [ObservableProperty] private string _playheadHint = "";
 
-    // ---- scrubber
+    // ---- preview player / scrubber
     public ObservableCollection<FilmstripFrame> Frames { get; } = new();
     [ObservableProperty] private double _scrubMs;
-    [ObservableProperty] private string _scrubText = "00:00.000";
+    [ObservableProperty] private string _scrubText = "00:00:00:00";
     [ObservableProperty] private BitmapImage? _previewImage;
     [ObservableProperty] private string _scrubStatus = "";
     [ObservableProperty] private bool _scrubberAvailable;
     [ObservableProperty] private double _frameStepMs = 40;
     [ObservableProperty] private string _sourceFileStatus = "";
     [ObservableProperty] private string _previewKind = "";
-    private string? _localSourceFile;
-    private CancellationTokenSource? _exactFrameCts;
-    private string? _filmstripDir;
-
-    /// <summary>Selecting a segment, or moving its start, shows that exact frame in the scrubber.</summary>
-    partial void OnSelectedSegmentChanged(SegmentEditItem? value)
-    {
-        if (value is not null) MoveScrubberTo(value.StartMs);
-    }
-
-    public void OnSegmentStartChanged(SegmentEditItem item)
-    {
-        if (ReferenceEquals(item, SelectedSegment)) MoveScrubberTo(item.StartMs);
-    }
-
-    private void MoveScrubberTo(double ms)
-    {
-        if (Math.Abs(ScrubMs - ms) < 0.5) _ = RequestExactFrameAsync(ms);   // no change event would fire
-        else ScrubMs = ms;
-    }
+    /// <summary>Path of the H.264 proxy once it exists; the view plays this. Null = filmstrip and stills only.</summary>
+    [ObservableProperty] private string? _proxyPath;
+    [ObservableProperty] private bool _isPlaying;
+    [ObservableProperty] private string _playPauseText = "▶ Play";
+    /// <summary>Set by the view while the player drives the position, so the VM does not seek the player back.</summary>
+    public bool PositionFromPlayer { get; set; }
 
     public EditViewModel(AppServices services, ShellViewModel shell, Dispatcher dispatcher)
     {
@@ -190,7 +198,7 @@ public partial class EditViewModel : ObservableObject
         _timer.Start();
     }
 
-    public void Stop() { _timer.Stop(); _filmstripCts?.Cancel(); }
+    public void Stop() { _timer.Stop(); _filmstripCts?.Cancel(); _suggestCts?.Cancel(); IsPlaying = false; }
 
     // ------------------------------------------------------------------ song list
 
@@ -199,11 +207,14 @@ public partial class EditViewModel : ObservableObject
         var keep = SelectedSongItem?.Song.Id;
         Songs.Clear();
         foreach (var s in _services.Library.Songs) Songs.Add(new SongListItem { Song = s });
-        if (keep is not null) { var again = Songs.FirstOrDefault(i => i.Song.Id == keep); if (again is not null) { _suppressSelect = true; SelectedSongItem = again; _suppressSelect = false; } }
+        if (keep is not null)
+        {
+            var again = Songs.FirstOrDefault(i => i.Song.Id == keep);
+            if (again is not null) { _suppressSelect = true; SelectedSongItem = again; _suppressSelect = false; }
+        }
         RefreshCompositionClips();
     }
 
-    private bool _suppressSelect;
     partial void OnSelectedSongItemChanged(SongListItem? value)
     {
         if (_suppressSelect || value is null) return;
@@ -232,6 +243,7 @@ public partial class EditViewModel : ObservableObject
             Title = clip.Name,
             Clip = new ClipRef { FilePath = clip.FilePath, FileName = Path.GetFileName(clip.FilePath), ClipName = clip.Name },
             DurationMs = (long)Math.Round(clip.DurationMs),
+            Fps = clip.Fps > 0 ? clip.Fps : Timecode.DefaultFps,
         };
         Load(song, isNew: true);
     }
@@ -255,7 +267,7 @@ public partial class EditViewModel : ObservableObject
             Clip = new ClipRef { FilePath = path, FileName = Path.GetFileName(path), ClipName = Path.GetFileNameWithoutExtension(path) },
         };
         var inComp = _services.Connection.Composition?.Clips.FirstOrDefault(c => PathNorm.Key(c.FilePath) == PathNorm.Key(path));
-        if (inComp is not null) song.DurationMs = (long)Math.Round(inComp.DurationMs);
+        if (inComp is not null) { song.DurationMs = (long)Math.Round(inComp.DurationMs); if (inComp.Fps > 0) song.Fps = inComp.Fps; }
         else
         {
             SaveStatusText = "Reading duration with ffprobe…";
@@ -269,6 +281,9 @@ public partial class EditViewModel : ObservableObject
     private void Load(Song song, bool isNew)
     {
         _filmstripCts?.Cancel();
+        _suggestCts?.Cancel();
+        IsPlaying = false;
+        ProxyPath = null;
         _song = song;
         _isNew = isNew;
         song.SortSegments();
@@ -276,19 +291,27 @@ public partial class EditViewModel : ObservableObject
         Title = song.Title;
         Artist = song.Artist;
         ClipFileText = song.Clip.FilePath;
-        DurationText = SegmentController.Fmt(song.DurationMs);
         Segments.Clear();
         foreach (var s in song.Segments) Segments.Add(new SegmentEditItem(this, s));
         foreach (var s in Segments) s.RefreshThumb(_services.Library);
-        SelectedSegment = Segments.FirstOrDefault();
         HasDrafts = false;
         SuggestStatus = "";
-        _suggestCts?.Cancel();
         IsDirty = isNew;
         SaveStatusText = isNew ? "New song (not saved yet)" : $"Loaded from {Path.GetFileName(_services.Library.SongPath(song.Id))}";
-        OnPropertyChanged(nameof(DurationMs));
         RefreshClipStatus();
+        RaiseTimeFormat();
+        SelectedSegment = Segments.FirstOrDefault();
         _ = PrepareScrubberAsync();
+    }
+
+    private void RaiseTimeFormat()
+    {
+        OnPropertyChanged(nameof(DurationMs));
+        OnPropertyChanged(nameof(Fps));
+        DurationText = Timecode.Format(DurationMs, Fps) + $"  ({Fps:0.##} fps)";
+        FrameStepMs = Timecode.FrameMs(Fps);
+        ScrubText = Timecode.Format(ScrubMs, Fps);
+        foreach (var s in Segments) s.RaiseTimes();
     }
 
     private void RefreshClipStatus()
@@ -299,8 +322,10 @@ public partial class EditViewModel : ObservableObject
         else
         {
             ClipStatusText = $"In Resolume at {clip.Location} · {(clip.IsConnected ? "LIVE" : clip.ConnectedState)} · {clip.Fps:0.##} fps";
-            FrameStepMs = clip.Fps > 0 ? 1000.0 / clip.Fps : 40;
-            if (_song.DurationMs == 0 && clip.DurationMs > 0) { _song.DurationMs = (long)Math.Round(clip.DurationMs); DurationText = SegmentController.Fmt(_song.DurationMs); OnPropertyChanged(nameof(DurationMs)); }
+            bool changed = false;
+            if (clip.Fps > 0 && Math.Abs(_song.Fps - clip.Fps) > 0.01) { _song.Fps = clip.Fps; changed = true; }
+            if (_song.DurationMs == 0 && clip.DurationMs > 0) { _song.DurationMs = (long)Math.Round(clip.DurationMs); changed = true; }
+            if (changed) RaiseTimeFormat();
         }
         RefreshCompositionClips();
     }
@@ -345,7 +370,7 @@ public partial class EditViewModel : ObservableObject
         Resort();
         SelectedSegment = item;
         MarkDirty();
-        Log.Info($"Segment added at {SegmentController.Fmt(seg.StartMs)} ({source})");
+        Log.Info($"Segment added at {Timecode.Format(seg.StartMs, Fps)} ({source})");
     }
 
     private string NextName()
@@ -354,6 +379,218 @@ public partial class EditViewModel : ObservableObject
         foreach (var n in new[] { "Intro", "Verse 1", "Chorus", "Verse 2", "Bridge", "Outro" }) if (!used.Contains(n)) return n;
         return $"Segment {Segments.Count + 1}";
     }
+
+    private double? PlayheadMs => PlayheadAvailable ? _services.Estimator.EstimateMs() : null;
+
+    [RelayCommand] private void MarkAtPlayhead() { if (PlayheadMs is double ms) AddSegmentAt(ms, "Resolume playhead"); else _shell.Flash("The song's clip is not live in Resolume. Connect it, or use the preview.", transient: true, warn: true); }
+    [RelayCommand] private void MarkAtScrubber() => AddSegmentAt(ScrubMs, "preview");
+    [RelayCommand] private void DeleteSegment()
+    {
+        if (_song is null || SelectedSegment is null) return;
+        var idx = Segments.IndexOf(SelectedSegment);
+        _song.Segments.Remove(SelectedSegment.Segment);
+        Segments.Remove(SelectedSegment);
+        SelectedSegment = Segments.Count == 0 ? null : Segments[Math.Min(idx, Segments.Count - 1)];
+        MarkDirty();
+    }
+    [RelayCommand] private void Nudge(string amount) { if (SelectedSegment is null) return; SelectedSegment.StartMs = (long)Math.Round(SelectedSegment.StartMs + Delta(amount)); }
+    [RelayCommand] private void NudgeEnd(string amount) { if (SelectedSegment?.EndMs is long e) SelectedSegment.EndMs = (long)Math.Round(e + Delta(amount)); }
+    private double Delta(string amount) => amount switch { "-frame" => -FrameStepMs, "+frame" => FrameStepMs, "-100" => -100, "+100" => 100, _ => 0 };
+    [RelayCommand] private void SetName(string name) { if (SelectedSegment is not null) SelectedSegment.Name = name; }
+    [RelayCommand] private void SetColor(string color) { if (SelectedSegment is not null) SelectedSegment.Color = color; }
+    [RelayCommand] private void SetStartFromScrubber() { if (SelectedSegment is not null) SelectedSegment.StartMs = (long)Math.Round(ScrubMs); }
+    [RelayCommand] private void SetStartFromPlayhead() { if (SelectedSegment is not null && PlayheadMs is double ms) SelectedSegment.StartMs = (long)Math.Round(ms); }
+    [RelayCommand] private void SetEndFromScrubber() { if (SelectedSegment is not null) SelectedSegment.EndMs = (long)Math.Round(ScrubMs); }
+    [RelayCommand] private void SetEndFromPlayhead() { if (SelectedSegment is not null && PlayheadMs is double ms) SelectedSegment.EndMs = (long)Math.Round(ms); }
+    [RelayCommand] private void ClearEnd() { if (SelectedSegment is not null) SelectedSegment.EndMs = null; }
+    [RelayCommand] private void SeekScrubberToSegment() { if (SelectedSegment is not null) MoveScrubberTo(SelectedSegment.StartMs); }
+    [RelayCommand] private void SeekScrubberToEnd() { if (SelectedSegment?.EndMs is long e) MoveScrubberTo(e); }
+
+    private void TickPlayhead()
+    {
+        var clip = FindClip();
+        var watched = _services.Connection.WatchedClip;
+        var available = clip is not null && watched is not null && clip.ClipId == watched.ClipId && clip.IsConnected && _services.Estimator.EstimateMs() is not null;
+        PlayheadAvailable = available;
+        PlayheadText = available ? Timecode.Format(_services.Estimator.EstimateMs()!.Value, Fps) : "--:--:--:--";
+        PlayheadHint = available ? (_services.Estimator.IsPaused ? "paused in Resolume" : "playing in Resolume") : clip is null ? "clip not in composition" : !clip.IsConnected ? "clip not live: connect it in Resolume to mark by ear" : "";
+    }
+
+    // ------------------------------------------------------------------ preview: filmstrip, proxy, player
+
+    /// <summary>Selecting a segment, or moving its start, shows that exact frame in the preview.</summary>
+    partial void OnSelectedSegmentChanged(SegmentEditItem? value)
+    {
+        if (value is not null) MoveScrubberTo(value.StartMs);
+    }
+
+    public void OnSegmentStartChanged(SegmentEditItem item) { if (ReferenceEquals(item, SelectedSegment)) MoveScrubberTo(item.StartMs); }
+    public void OnSegmentEndChanged(SegmentEditItem item) { if (ReferenceEquals(item, SelectedSegment) && item.EndMs is long e) MoveScrubberTo(e); }
+
+    private void MoveScrubberTo(double ms)
+    {
+        IsPlaying = false;
+        if (Math.Abs(ScrubMs - ms) < 0.5) _ = RequestExactFrameAsync(ms);
+        else ScrubMs = ms;
+    }
+
+    private async Task PrepareScrubberAsync()
+    {
+        Frames.Clear();
+        PreviewImage = null;
+        ScrubberAvailable = false;
+        ProxyPath = null;
+        if (_song is null) return;
+        ScrubMs = 0;
+
+        _localSourceFile = ResolveLocalFile();
+        if (_localSourceFile is null)
+        {
+            var mapper = new PathMapper(_services.Settings.PathMappings);
+            var tried = string.Join(", ", mapper.Variants(_song.Clip.FilePath));
+            SourceFileStatus = $"Can't read the media file on this PC (tried {tried}). Add a path mapping in Settings, or do this edit on the Resolume PC. Thumbnails will be placeholders.";
+            ScrubStatus = "";
+            return;
+        }
+        SourceFileStatus = $"Media file: {_localSourceFile}";
+        if (!_services.Ffmpeg.IsAvailable)
+        {
+            ScrubStatus = _services.Ffmpeg.StatusText + ". Set the ffmpeg path in Settings to enable the preview and thumbnails.";
+            return;
+        }
+
+        var dir = FilmstripDir(_song, _localSourceFile);
+        _filmstripDir = dir;
+        var cts = _filmstripCts = new CancellationTokenSource();
+        var song = _song;
+
+        if (!File.Exists(Path.Combine(dir, "done.txt")))
+        {
+            ScrubStatus = "Building preview frames (low priority, one every 2 s)…";
+            var result = await _services.Ffmpeg.FilmstripAsync(_localSourceFile, dir, 2, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            if (!result.Ok) { ScrubStatus = $"Preview frames failed: {result.Error}"; return; }
+        }
+        var files = Directory.GetFiles(dir, "*.jpg").OrderBy(f => f).ToList();
+        for (int i = 0; i < files.Count; i++) Frames.Add(new FilmstripFrame { Index = i, TimeMs = i * 2000.0, Path = files[i], Fps = Fps });
+        ScrubberAvailable = Frames.Count > 0;
+        ScrubStatus = $"{Frames.Count} preview frames · building the preview video…";
+        if (SelectedSegment is not null && Math.Abs(ScrubMs - SelectedSegment.StartMs) > 0.5) ScrubMs = SelectedSegment.StartMs;
+        else { UpdatePreview(); _ = RequestExactFrameAsync(ScrubMs); }
+
+        // The proxy video: real play/pause and instant frame stepping once it exists.
+        var proxy = Path.Combine(dir, "preview.mp4");
+        var pr = await _services.Ffmpeg.PreviewProxyAsync(_localSourceFile, proxy, cts.Token);
+        if (cts.IsCancellationRequested || !ReferenceEquals(_song, song)) return;
+        if (pr.Ok)
+        {
+            ProxyPath = proxy;
+            PreviewKind = $"frame {Timecode.Format(ScrubMs, Fps)}";
+            ScrubStatus = "Preview video ready · Space plays and pauses, ←/→ one frame, Shift+←/→ one second, M marks here";
+        }
+        else ScrubStatus = $"{Frames.Count} preview frames · preview video failed ({pr.Error}); stepping uses stills";
+    }
+
+    private string FilmstripDir(Song song, string file)
+    {
+        var fi = new FileInfo(file);
+        var key = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes($"{fi.FullName.ToUpperInvariant()}|{fi.Length}|{fi.LastWriteTimeUtc.Ticks}")))[..12];
+        return Path.Combine(_services.Library.ThumbDir(song.Id), key + ".filmstrip");
+    }
+
+    private string? ResolveLocalFile()
+    {
+        if (_song is null) return null;
+        var mapper = new PathMapper(_services.Settings.PathMappings);
+        var candidates = new List<string>();
+        var clip = FindClip();
+        if (clip is not null && !string.IsNullOrEmpty(clip.FilePath)) candidates.AddRange(mapper.Variants(clip.FilePath));
+        candidates.AddRange(mapper.Variants(_song.Clip.FilePath));
+        return candidates.FirstOrDefault(File.Exists);
+    }
+
+    partial void OnScrubMsChanged(double value)
+    {
+        ScrubText = Timecode.Format(value, Fps);
+        if (ProxyPath is not null) { PreviewKind = IsPlaying ? "playing" : $"frame {Timecode.Format(value, Fps)}"; return; }
+        UpdatePreview();
+        _ = RequestExactFrameAsync(value);
+    }
+
+    partial void OnIsPlayingChanged(bool value)
+    {
+        PlayPauseText = value ? "⏸ Pause" : "▶ Play";
+        if (value) PreviewKind = "playing";
+    }
+
+    [RelayCommand]
+    private void PlayPause()
+    {
+        if (ProxyPath is null) { _shell.Flash("The preview video is still being built; stepping uses stills until then.", transient: true); return; }
+        IsPlaying = !IsPlaying;
+    }
+
+    /// <summary>Immediate feedback before the proxy exists: the nearest filmstrip frame (one every 2 s).</summary>
+    private void UpdatePreview()
+    {
+        if (Frames.Count == 0) { PreviewImage = null; PreviewKind = ""; return; }
+        var idx = Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1);
+        PreviewImage = ThumbCache.Get(Frames[idx].Path, 480);
+        PreviewKind = $"nearest preview frame ({Frames[idx].TimeText})";
+    }
+
+    /// <summary>Without the proxy: after the scrubber settles, pull the exact frame with ffmpeg.</summary>
+    private async Task RequestExactFrameAsync(double ms)
+    {
+        _exactFrameCts?.Cancel();
+        var cts = _exactFrameCts = new CancellationTokenSource();
+        if (_song is null || _localSourceFile is null || _filmstripDir is null || !_services.Ffmpeg.IsAvailable || ProxyPath is not null) return;
+        try
+        {
+            await Task.Delay(350, cts.Token);
+            var exactMs = (long)Math.Round(ms);
+            var path = Path.Combine(_filmstripDir, "exact", $"{exactMs}.jpg");
+            if (!File.Exists(path))
+            {
+                var r = await _services.Ffmpeg.ThumbnailAsync(_localSourceFile, exactMs, path, cts.Token);
+                if (!r.Ok || cts.IsCancellationRequested) return;
+            }
+            if (cts.IsCancellationRequested || Math.Abs(ScrubMs - ms) > 0.5 || ProxyPath is not null) return;
+            PreviewImage = ThumbCache.Get(path, 480);
+            PreviewKind = $"exact frame {Timecode.Format(exactMs, Fps)}";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Warn($"Exact frame preview failed: {ex.Message}"); }
+    }
+
+    public void ScrubStep(int direction, bool bySecond)
+    {
+        IsPlaying = false;
+        var step = bySecond ? 1000 : FrameStepMs;
+        // Land exactly on a frame boundary so hh:mm:ss:ff reads clean.
+        var frames = Math.Round(ScrubMs / FrameStepMs) + direction * (bySecond ? Math.Round(1000 / FrameStepMs) : 1);
+        ScrubMs = Math.Clamp(frames * FrameStepMs, 0, Math.Max(0, DurationMs));
+        _ = step;
+    }
+
+    public void ScrubTo(FilmstripFrame frame) => MoveScrubberTo(frame.TimeMs);
+
+    /// <summary>Keyboard while Edit mode is active and no text box has focus.</summary>
+    public bool HandleKey(KeyEventArgs e)
+    {
+        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
+        switch (e.Key)
+        {
+            case Key.M: if (PlayheadAvailable && !shift) MarkAtPlayheadCommand.Execute(null); else MarkAtScrubberCommand.Execute(null); return true;
+            case Key.Left: ScrubStep(-1, shift); return true;
+            case Key.Right: ScrubStep(1, shift); return true;
+            case Key.Space: PlayPauseCommand.Execute(null); return true;
+            case Key.Escape: if (IsPlaying) { IsPlaying = false; return true; } _shell.BackToShow(); return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ suggestions
 
     /// <summary>Audio structure + video cuts → draft segments. Offline, low priority, a human keeps or discards them.</summary>
     [RelayCommand]
@@ -386,11 +623,7 @@ public partial class EditViewModel : ObservableObject
             var result = await Task.Run(() => StructureAnalyzer.Analyze(pcm, 22050, cuts, null, progress), cts.Token);
             if (cts.IsCancellationRequested) return;
 
-            if (replace)
-            {
-                _song.Segments.Clear();
-                Segments.Clear();
-            }
+            if (replace) { _song.Segments.Clear(); Segments.Clear(); }
             foreach (var s in result)
             {
                 var seg = new Segment { Name = s.Name, StartMs = s.StartMs, Color = ColorFor(s.Name) };
@@ -404,7 +637,7 @@ public partial class EditViewModel : ObservableObject
             SelectedSegment = Segments.FirstOrDefault(x => x.IsDraft);
             MarkDirty();
             SuggestStatus = $"{result.Count} segments suggested ({cuts.Count} video cuts found). Check each one, then Save to keep them.";
-            Log.Info($"Suggested {result.Count} segments for \"{_song.Title}\": {string.Join(", ", result.Select(x => $"{x.Name}@{x.StartText}"))}");
+            Log.Info($"Suggested {result.Count} segments for \"{_song.Title}\": {string.Join(", ", result.Select(x => $"{x.Name}@{Timecode.Format(x.StartMs, Fps)}"))}");
             await ReadLyricsAsync(file, onlyEmpty: true, cts.Token);
         }
         catch (OperationCanceledException) { SuggestStatus = "Cancelled"; }
@@ -441,7 +674,6 @@ public partial class EditViewModel : ObservableObject
             SuggestStatus = $"Reading lyrics from the video… {i + 1}/{todo.Count} ({item.Name})";
             var end = _song!.SegmentEndMs(_song.Segments.IndexOf(item.Segment));
             string note = "";
-            // Lyrics usually appear a moment after the section starts; try two points before giving up.
             // Two moments after the section starts, each read as-is and then as inverted high-contrast grey (helps light text on dark video).
             foreach (var offset in new[] { 2000.0, 4500.0 })
             {
@@ -493,160 +725,6 @@ public partial class EditViewModel : ObservableObject
         if (n.StartsWith("instrumental")) return "#7ED321";
         if (n.StartsWith("tag")) return "#F8E71C";
         return "#4A90D9";
-    }
-
-    [RelayCommand] private void MarkAtPlayhead() { if (_services.Estimator.EstimateMs() is double ms && PlayheadAvailable) AddSegmentAt(ms, "Resolume playhead"); else _shell.Flash("The song's clip is not live in Resolume. Connect it, or use the scrubber.", transient: true, warn: true); }
-    [RelayCommand] private void MarkAtScrubber() => AddSegmentAt(ScrubMs, "scrubber");
-    [RelayCommand] private void DeleteSegment()
-    {
-        if (_song is null || SelectedSegment is null) return;
-        var idx = Segments.IndexOf(SelectedSegment);
-        _song.Segments.Remove(SelectedSegment.Segment);
-        Segments.Remove(SelectedSegment);
-        SelectedSegment = Segments.Count == 0 ? null : Segments[Math.Min(idx, Segments.Count - 1)];
-        MarkDirty();
-    }
-    [RelayCommand] private void Nudge(string amount) { if (SelectedSegment is null) return; var delta = amount switch { "-frame" => -FrameStepMs, "+frame" => FrameStepMs, "-100" => -100, "+100" => 100, _ => 0 }; SelectedSegment.StartMs = (long)Math.Round(SelectedSegment.StartMs + delta); }
-    [RelayCommand] private void SetName(string name) { if (SelectedSegment is not null) SelectedSegment.Name = name; }
-    [RelayCommand] private void SetColor(string color) { if (SelectedSegment is not null) SelectedSegment.Color = color; }
-    [RelayCommand] private void SetStartFromScrubber() { if (SelectedSegment is not null) SelectedSegment.StartMs = (long)Math.Round(ScrubMs); }
-    [RelayCommand] private void SetStartFromPlayhead() { if (SelectedSegment is not null && _services.Estimator.EstimateMs() is double ms && PlayheadAvailable) SelectedSegment.StartMs = (long)Math.Round(ms); }
-    [RelayCommand] private void SeekScrubberToSegment() { if (SelectedSegment is not null) ScrubMs = SelectedSegment.StartMs; }
-
-    private void TickPlayhead()
-    {
-        var clip = FindClip();
-        var watched = _services.Connection.WatchedClip;
-        var available = clip is not null && watched is not null && clip.ClipId == watched.ClipId && clip.IsConnected && _services.Estimator.EstimateMs() is not null;
-        PlayheadAvailable = available;
-        PlayheadText = available ? SegmentController.Fmt(_services.Estimator.EstimateMs()!.Value) : "--:--.---";
-        PlayheadHint = available ? (_services.Estimator.IsPaused ? "paused in Resolume" : "playing in Resolume") : clip is null ? "clip not in composition" : !clip.IsConnected ? "clip not live: connect it in Resolume to mark by ear" : "";
-    }
-
-    // ------------------------------------------------------------------ scrubber
-
-    private async Task PrepareScrubberAsync()
-    {
-        Frames.Clear();
-        PreviewImage = null;
-        ScrubberAvailable = false;
-        if (_song is null) return;
-        ScrubMs = 0;
-
-        _localSourceFile = ResolveLocalFile();
-        if (_localSourceFile is null)
-        {
-            var mapper = new PathMapper(_services.Settings.PathMappings);
-            var tried = string.Join(", ", mapper.Variants(_song.Clip.FilePath));
-            SourceFileStatus = $"Can't read the media file on this PC (tried {tried}). Add a path mapping in Settings, or do this edit on the Resolume PC. Thumbnails will be placeholders.";
-            ScrubStatus = "";
-            return;
-        }
-        SourceFileStatus = $"Media file: {_localSourceFile}";
-        if (!_services.Ffmpeg.IsAvailable)
-        {
-            ScrubStatus = _services.Ffmpeg.StatusText + ". Set the ffmpeg path in Settings to enable the scrubber and thumbnails.";
-            return;
-        }
-
-        var dir = FilmstripDir(_song, _localSourceFile);
-        _filmstripDir = dir;
-        var cts = _filmstripCts = new CancellationTokenSource();
-        if (!File.Exists(Path.Combine(dir, "done.txt")))
-        {
-            ScrubStatus = "Building preview frames (low priority, one every 2 s)…";
-            var result = await _services.Ffmpeg.FilmstripAsync(_localSourceFile, dir, 2, cts.Token);
-            if (cts.IsCancellationRequested) return;
-            if (!result.Ok) { ScrubStatus = $"Preview frames failed: {result.Error}"; return; }
-        }
-        var files = Directory.GetFiles(dir, "*.jpg").OrderBy(f => f).ToList();
-        for (int i = 0; i < files.Count; i++) Frames.Add(new FilmstripFrame { Index = i, TimeMs = i * 2000.0, Path = files[i] });
-        ScrubberAvailable = Frames.Count > 0;
-        ScrubStatus = $"{Frames.Count} preview frames · drag the playhead, ←/→ one frame, Shift+←/→ one second, M marks";
-        // Land on the selected segment's start now that frames and the cache folder exist.
-        if (SelectedSegment is not null && Math.Abs(ScrubMs - SelectedSegment.StartMs) > 0.5) ScrubMs = SelectedSegment.StartMs;
-        else { UpdatePreview(); _ = RequestExactFrameAsync(ScrubMs); }
-    }
-
-    private string FilmstripDir(Song song, string file)
-    {
-        var fi = new FileInfo(file);
-        var key = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes($"{fi.FullName.ToUpperInvariant()}|{fi.Length}|{fi.LastWriteTimeUtc.Ticks}")))[..12];
-        return Path.Combine(_services.Library.ThumbDir(song.Id), key + ".filmstrip");
-    }
-
-    private string? ResolveLocalFile()
-    {
-        if (_song is null) return null;
-        var mapper = new PathMapper(_services.Settings.PathMappings);
-        var candidates = new List<string>();
-        var clip = FindClip();
-        if (clip is not null && !string.IsNullOrEmpty(clip.FilePath)) candidates.AddRange(mapper.Variants(clip.FilePath));
-        candidates.AddRange(mapper.Variants(_song.Clip.FilePath));
-        return candidates.FirstOrDefault(File.Exists);
-    }
-
-    partial void OnScrubMsChanged(double value)
-    {
-        ScrubText = SegmentController.Fmt(value);
-        UpdatePreview();
-        _ = RequestExactFrameAsync(value);
-    }
-
-    /// <summary>Immediate feedback: the nearest filmstrip frame (one every 2 s). The exact frame follows shortly after.</summary>
-    private void UpdatePreview()
-    {
-        if (Frames.Count == 0) { PreviewImage = null; PreviewKind = ""; return; }
-        var idx = Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1);
-        PreviewImage = ThumbCache.Get(Frames[idx].Path, 480);
-        PreviewKind = $"nearest preview frame ({Frames[idx].TimeText})";
-    }
-
-    /// <summary>After the scrubber settles, pull the exact frame at that time with ffmpeg so the operator sees the frame
-    /// the segment will start on. Cached next to the filmstrip; one job at a time, low priority.</summary>
-    private async Task RequestExactFrameAsync(double ms)
-    {
-        _exactFrameCts?.Cancel();
-        var cts = _exactFrameCts = new CancellationTokenSource();
-        if (_song is null || _localSourceFile is null || _filmstripDir is null || !_services.Ffmpeg.IsAvailable) return;
-        try
-        {
-            await Task.Delay(350, cts.Token);
-            var exactMs = (long)Math.Round(ms);
-            var path = Path.Combine(_filmstripDir, "exact", $"{exactMs}.jpg");
-            if (!File.Exists(path))
-            {
-                var r = await _services.Ffmpeg.ThumbnailAsync(_localSourceFile, exactMs, path, cts.Token);
-                if (!r.Ok || cts.IsCancellationRequested) return;
-            }
-            if (cts.IsCancellationRequested || Math.Abs(ScrubMs - ms) > 0.5) return;
-            PreviewImage = ThumbCache.Get(path, 480);
-            PreviewKind = $"exact frame at {SegmentController.Fmt(exactMs)}";
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) { Log.Warn($"Exact frame preview failed: {ex.Message}"); }
-    }
-
-    public void ScrubStep(int direction, bool bySecond)
-    {
-        var step = bySecond ? 1000 : FrameStepMs;
-        ScrubMs = Math.Clamp(ScrubMs + direction * step, 0, Math.Max(0, DurationMs));
-    }
-
-    public void ScrubTo(FilmstripFrame frame) => ScrubMs = frame.TimeMs;
-
-    /// <summary>Keyboard while Edit mode is active and no text box has focus.</summary>
-    public bool HandleKey(KeyEventArgs e)
-    {
-        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
-        switch (e.Key)
-        {
-            case Key.M: if (PlayheadAvailable && !shift) MarkAtPlayheadCommand.Execute(null); else MarkAtScrubberCommand.Execute(null); return true;
-            case Key.Left: ScrubStep(-1, shift); return true;
-            case Key.Right: ScrubStep(1, shift); return true;
-            case Key.Escape: _shell.BackToShow(); return true;
-        }
-        return false;
     }
 
     // ------------------------------------------------------------------ save / delete
@@ -746,10 +824,9 @@ public partial class EditViewModel : ObservableObject
         if (_song is null || _isNew) return;
         if (Views.DarkMessageBox.Show($"Delete \"{_song.Title}\" from the library? A .bak copy is kept.", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _services.Library.DeleteSong(_song.Id);
-        _song = null; HasSong = false; IsDirty = false; Segments.Clear(); Frames.Clear(); PreviewImage = null;
+        _song = null; HasSong = false; IsDirty = false; Segments.Clear(); Frames.Clear(); PreviewImage = null; ProxyPath = null; IsPlaying = false;
         RefreshSongList();
     }
 
-    [RelayCommand] private void BackToShow() => _shell.BackToShow();
     [RelayCommand] private void OpenLibraryFolder() { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", _services.Library.RootPath) { UseShellExecute = true }); } catch { } }
 }

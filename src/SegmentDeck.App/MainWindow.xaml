@@ -18,6 +18,29 @@
         <DataTemplate DataType="{x:Type vm:EditViewModel}">
             <views:EditView/>
         </DataTemplate>
+        <DataTemplate x:Key="SetlistSongTemplate" DataType="{x:Type vm:SetlistSongItem}">
+            <Border x:Name="Chip" Margin="0,0,6,0" Padding="12,5" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
+                    Cursor="Hand" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown" ToolTip="{Binding Detail}">
+                <TextBlock Text="{Binding Title}" FontSize="14" x:Name="ChipText"/>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsUnknown}" Value="True">
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                    <Setter TargetName="ChipText" Property="FontStyle" Value="Italic"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                    <Setter TargetName="ChipText" Property="TextDecorations" Value="Strikethrough"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource SelectBrush}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                    <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                    <Setter TargetName="ChipText" Property="FontWeight" Value="Bold"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
     <DockPanel Margin="10">
         <!-- ===== status bar ===== -->
@@ -32,13 +55,35 @@
                             x:Name="RoleBadge">
                         <TextBlock Text="{Binding RoleText}" FontWeight="Bold" FontSize="12"/>
                     </Border>
-                    <Button Content="Edit (E)" MinHeight="28" FontSize="12" Command="{Binding ToggleModeCommand}" Visibility="{Binding IsShowMode, Converter={StaticResource Vis}}"/>
+                    <Button Content="{Binding ModeButtonText}" Style="{StaticResource PrimaryButton}" MinHeight="28" MinWidth="150" FontSize="12" Command="{Binding ToggleModeCommand}"/>
                     <Button Content="Setlists" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenSetlistsCommand}"/>
                     <Button Content="Settings" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenSettingsCommand}"/>
                     <Button Content="Log" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenLogCommand}"/>
                 </StackPanel>
 
                 <TextBlock Text="{Binding MessageText}" Foreground="{Binding MessageBrush}" Margin="18,0,12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== setlist bar (Show mode) ===== -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Panel}" Padding="10,6" DataContext="{Binding Show}"
+                Visibility="{Binding DataContext.IsShowMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Text="SETLIST" Style="{StaticResource SectionLabel}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="230" MinHeight="30"/>
+                <Button DockPanel.Dock="Left" Content="Manage…" MinHeight="30" FontSize="12" Margin="6,0,12,0" Command="{Binding ManageSetlistsCommand}"/>
+                <Button DockPanel.Dock="Right" Content="▶ Launch (Enter)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12" Margin="10,0,0,0"
+                        Command="{Binding LaunchSelectedCommand}" IsEnabled="{Binding CanLaunch}"
+                        ToolTip="Connects the selected song's clip. Only when 'Launch songs from setlist' is on in Settings. ←/→ select."/>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False">
+                    <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 

@@ -67,6 +67,24 @@ public sealed class FfmpegService
         return result;
     }
 
+    /// <summary>A small H.264/AAC proxy of the song for the Edit mode player: quick to seek, plays in WPF's media element,
+    /// which cannot decode DXV. Written to a temp name and renamed when complete.</summary>
+    public async Task<FfmpegResult> PreviewProxyAsync(string sourceFile, string outputMp4, CancellationToken ct = default)
+    {
+        if (!IsAvailable) return new FfmpegResult(false, "ffmpeg is not available");
+        if (!File.Exists(sourceFile)) return new FfmpegResult(false, $"Source file not found: {sourceFile}");
+        if (File.Exists(outputMp4)) return new FfmpegResult(true);
+        Directory.CreateDirectory(Path.GetDirectoryName(outputMp4)!);
+        var tmp = outputMp4 + ".part.mp4";
+        // Short GOP so seeking to any frame is fast; 360p is plenty for a preview and keeps the file small.
+        var args = $"-hide_banner -loglevel error -y -i \"{sourceFile}\" -vf \"scale=640:-2\" -c:v libx264 -preset veryfast -crf 26 -g 12 -keyint_min 12 -pix_fmt yuv420p -c:a aac -b:a 96k -movflags +faststart \"{tmp}\"";
+        var result = await JobAsync(args, tmp, ct, TimeSpan.FromMinutes(15));
+        if (!result.Ok) { try { File.Delete(tmp); } catch { } return result; }
+        try { File.Move(tmp, outputMp4, overwrite: true); }
+        catch (Exception ex) { return new FfmpegResult(false, ex.Message); }
+        return new FfmpegResult(true);
+    }
+
     /// <summary>Decodes the audio track to mono float samples at <paramref name="sampleRate"/> Hz, for structure analysis.</summary>
     public async Task<float[]?> DecodeAudioAsync(string sourceFile, int sampleRate = 22050, CancellationToken ct = default)
     {

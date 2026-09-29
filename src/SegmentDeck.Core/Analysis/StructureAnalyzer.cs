@@ -2,7 +2,7 @@ namespace SegmentDeck.Core.Analysis;
 
 public sealed record SuggestedSegment(long StartMs, string Name, double Confidence, string Basis)
 {
-    public string StartText => $"{(int)(StartMs / 60000):00}:{StartMs / 1000 % 60:00}.{StartMs % 1000:000}";
+    public string StartText => Timecode.Format(StartMs);
 }
 
 public sealed class AnalysisOptions

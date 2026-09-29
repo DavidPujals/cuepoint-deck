@@ -39,6 +39,9 @@ public partial class ShellViewModel : ObservableObject
     // ---- content
     [ObservableProperty] private object? _currentView;
     [ObservableProperty] private bool _isShowMode = true;
+    [ObservableProperty] private string _modeButtonText = "Edit mode (E)";
+
+    partial void OnIsShowModeChanged(bool value) => ModeButtonText = value ? "Edit mode (E)" : "◀ Back to Show (Esc)";
     public ShowViewModel Show { get; }
     public EditViewModel? Edit { get; private set; }
 
