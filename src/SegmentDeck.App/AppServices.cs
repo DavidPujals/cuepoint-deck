@@ -49,7 +49,7 @@ public sealed class AppServices
     public async Task StopAsync()
     {
         Controller?.Dispose();
-        if (Connection is not null) await Connection.StopAsync();
+        if (Connection is not null) await Connection.StopAsync().ConfigureAwait(false);
     }
 
     private void StartLibrary(string path)

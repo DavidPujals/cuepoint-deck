@@ -40,6 +40,32 @@ public partial class App : Application
         window.Show();
         ArmDebugScreenshot(window);
         ArmDebugOcr();
+        ArmDebugUpdateTest();
+    }
+
+    /// <summary>Test aid: SEGMENTDECK_UPDATE_TEST=check logs what the updater finds; =install also downloads and swaps
+    /// the exe, then exits, so the update path can be proven against the real GitHub release without clicking.</summary>
+    private static void ArmDebugUpdateTest()
+    {
+        var mode = Environment.GetEnvironmentVariable("SEGMENTDECK_UPDATE_TEST");
+        if (string.IsNullOrWhiteSpace(mode)) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var info = await SegmentDeck.App.Services.UpdateService.CheckAsync();
+                Log.Info($"Update test: running {SegmentDeck.App.Services.UpdateService.Format(SegmentDeck.App.Services.UpdateService.CurrentVersion)}, canSelfUpdate={SegmentDeck.App.Services.UpdateService.CanSelfUpdate}, latest={(info is null ? "none newer" : $"v{SegmentDeck.App.Services.UpdateService.Format(info.Version)} at {info.DownloadUrl}")}");
+                if (string.Equals(mode, "install", StringComparison.OrdinalIgnoreCase) && info is not null && SegmentDeck.App.Services.UpdateService.CanSelfUpdate)
+                {
+                    var last = -1;
+                    var progress = new Progress<double>(p => { var pct = (int)(p * 100); if (pct / 25 != last / 25) { last = pct; Log.Info($"Update test: downloaded {pct}%"); } });
+                    await SegmentDeck.App.Services.UpdateService.DownloadAndInstallAsync(info, progress);
+                    Log.Info("Update test: install finished");
+                }
+            }
+            catch (Exception ex) { Log.Error("Update test failed", ex); }
+            _ = Current.Dispatcher.BeginInvoke(() => Current.Shutdown());
+        });
     }
 
     /// <summary>Test aid: SEGMENTDECK_OCR_TEST=<image;image…> logs what Windows OCR reads from each image.</summary>
@@ -101,8 +127,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        Services.StopAsync().GetAwaiter().GetResult();
-        Log.Info("Segment Deck closed");
+        // Run the shutdown off the UI thread: awaiting it here would post its continuation back to this (blocked)
+        // dispatcher and the process would never exit. Bounded so a stuck socket can't hold the app open either.
+        var stopped = Task.Run(Services.StopAsync).Wait(TimeSpan.FromSeconds(3));
+        Log.Info(stopped ? "Segment Deck closed" : "Segment Deck closed (shutdown timed out)");
         base.OnExit(e);
     }
 }
