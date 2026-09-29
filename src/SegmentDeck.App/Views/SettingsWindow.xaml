@@ -1,0 +1,72 @@
+<Window x:Class="SegmentDeck.App.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings (this PC)" Background="{StaticResource BgBrush}"
+        Width="720" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="MinHeight" Value="28"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </Window.Resources>
+    <StackPanel Margin="14">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+            </Grid.RowDefinitions>
+
+            <Label Grid.Row="0" Content="Resolume host"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" ToolTip="127.0.0.1 on the Resolume PC, or its IP on VLAN 131 from the operator PC"/>
+            <Label Grid.Row="1" Content="Port"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Width="90" HorizontalAlignment="Left" Margin="0,3"/>
+            <Label Grid.Row="2" Content="Role"/>
+            <ComboBox Grid.Row="2" Grid.Column="1" SelectedIndex="{Binding RoleIndex}" Width="220" HorizontalAlignment="Left" Margin="0,3">
+                <ComboBoxItem Content="Controller (fires segments)"/>
+                <ComboBoxItem Content="Follow (read-only display)"/>
+            </ComboBox>
+            <Label Grid.Row="3" Content="Library path"/>
+            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LibraryPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,3" ToolTip="Local folder or UNC share both PCs can see"/>
+            <Button Grid.Row="3" Grid.Column="2" Content="Browse…" Style="{StaticResource SmallButton}" Margin="6,3,0,3" Command="{Binding BrowseLibraryCommand}"/>
+            <Label Grid.Row="4" Content="Song layer"/>
+            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding SongLayer, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left" Margin="0,3" ToolTip="Breaks ties when a song's file is in more than one clip, and is where songs are launched"/>
+            <Label Grid.Row="5" Content="{Binding LatencyLabel}"/>
+            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LatencyOffset, UpdateSourceTrigger=PropertyChanged}" Width="60" HorizontalAlignment="Left" Margin="0,3" ToolTip="How early a queued jump is sent. Stored per host. Start at 40 locally; raise it remotely until queued jumps land on the boundary."/>
+            <Label Grid.Row="6" Content="Default trigger"/>
+            <ComboBox Grid.Row="6" Grid.Column="1" SelectedIndex="{Binding DefaultTriggerIndex}" Width="220" HorizontalAlignment="Left" Margin="0,3">
+                <ComboBoxItem Content="Queue (Shift = Cut)"/>
+                <ComboBoxItem Content="Cut (Shift = Queue)"/>
+            </ComboBox>
+            <Label Grid.Row="7" Content="Launch songs from setlist"/>
+            <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding LaunchSongsFromSetlist}" Margin="0,3" Content="Enter or the Launch button connects the selected song's clip; firing a segment of a song that isn't live connects it first"/>
+            <Label Grid.Row="8" Content="Always on top"/>
+            <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding AlwaysOnTop}" Margin="0,3"/>
+            <Label Grid.Row="9" Content="Card size"/>
+            <DockPanel Grid.Row="9" Grid.Column="1" Margin="0,3">
+                <TextBlock DockPanel.Dock="Right" Text="{Binding CardScale, StringFormat={}{0:0.00}×}" FontFamily="Consolas" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <Slider Minimum="0.6" Maximum="2.0" Value="{Binding CardScale}" TickFrequency="0.1" IsSnapToTickEnabled="True" VerticalAlignment="Center" ToolTip="1.0 = cards about 240 px wide"/>
+            </DockPanel>
+        </Grid>
+
+        <TextBlock Style="{StaticResource SectionLabel}" Text="PATH MAPPINGS — one per line, for editing on a PC that sees the media at a different path"/>
+        <TextBox Text="{Binding PathMappingsText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" MinHeight="60" FontFamily="Consolas" FontSize="12" ToolTip="D:\Media => \\CITY-VISUALS\Media"/>
+
+        <TextBlock Style="{StaticResource SectionLabel}" Text="FFMPEG — needed only for Edit mode thumbnails and the preview scrubber"/>
+        <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Check" Style="{StaticResource SmallButton}" Margin="6,0,0,0" Command="{Binding CheckFfmpegCommand}"/>
+            <Button DockPanel.Dock="Right" Content="Browse…" Style="{StaticResource SmallButton}" Margin="6,0,0,0" Command="{Binding BrowseFfmpegCommand}"/>
+            <TextBox Text="{Binding FfmpegPath, UpdateSourceTrigger=PropertyChanged}" ToolTip="Full path to ffmpeg.exe (ffprobe.exe next to it is used for durations)"/>
+        </DockPanel>
+        <TextBlock Text="{Binding FfmpegStatus}" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource DangerBrush}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Cancel" MinWidth="100" Click="Cancel_Click"/>
+            <Button Content="Save" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="8,0,0,0" Click="Save_Click"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

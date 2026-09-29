@@ -6,4 +6,7 @@
     <RootNamespace>SegmentDeck.Core</RootNamespace>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SegmentDeck.Core.Tests" />
+  </ItemGroup>
 </Project>

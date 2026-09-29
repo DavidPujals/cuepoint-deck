@@ -18,7 +18,7 @@ public sealed class PositionUpdate
 /// <summary>Owns the link to one Resolume instance: connects, retries every 2 s forever, parses the composition,
 /// keeps clip connected states current, streams the watched clip's position, and sends seeks and triggers.
 /// All events fire on background threads; the UI marshals to its dispatcher.</summary>
-public sealed class ResolumeConnection : IAsyncDisposable
+public sealed class ResolumeConnection : IResolumeLink, IAsyncDisposable
 {
     public static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(2);
 
