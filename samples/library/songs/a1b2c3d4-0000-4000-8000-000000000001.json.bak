@@ -13,20 +13,20 @@
     {
       "id": "seg-intro",
       "name": "Intro",
-      "startMs": 0,
+      "startMs": 1600,
       "color": "#8E8E93",
       "lyric": "",
       "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-intro.jpg",
-      "thumbAtMs": 0
+      "thumbAtMs": 1600
     },
     {
       "id": "seg-v1",
       "name": "Verse 1",
-      "startMs": 12000,
+      "startMs": 16588,
       "color": "#4A90D9",
       "lyric": "First line of verse one",
       "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-v1.jpg",
-      "thumbAtMs": 12000
+      "thumbAtMs": 16588
     },
     {
       "id": "seg-ch1",
@@ -83,5 +83,5 @@
       "thumbAtMs": 186000
     }
   ],
-  "updatedAt": "2026-09-28T12:00:00Z"
+  "updatedAt": "2026-09-29T01:52:29.0271266+00:00"
 }

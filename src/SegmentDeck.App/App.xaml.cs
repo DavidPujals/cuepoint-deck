@@ -16,6 +16,7 @@ public partial class App : Application
         base.OnStartup(e);
         Log.Init();
         Log.Info($"Segment Deck {typeof(App).Assembly.GetName().Version} starting");
+        SegmentDeck.App.Services.UpdateService.CleanupLeftovers();
 
         DispatcherUnhandledException += (_, args) =>
         {

@@ -25,4 +25,10 @@ public partial class SettingsWindow : Window
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void About_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new AboutWindow(_services.Connection.ProductInfo) { Owner = this };
+        w.ShowDialog();
+    }
 }

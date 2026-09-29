@@ -43,8 +43,7 @@ Screenshots from the development PC: [Show mode](docs/screenshots/show-mode.png)
 
 ### Segment Deck
 
-No installer. Copy the `SegmentDeck` publish folder anywhere and run `SegmentDeck.exe`. No admin rights,
-no .NET install, no login.
+No installer. Copy `SegmentDeck.exe` anywhere and run it. No admin rights, no .NET install, no login.
 
 First start: it connects to `127.0.0.1:8080` and creates `Documents\SegmentDeck Library`.
 Open **Settings** to change:
@@ -136,6 +135,28 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 from the library, drag or use Up/Down to reorder, remove. **Use in Show mode** makes one active. Show mode
 works without a setlist; it just follows whatever clip is connected.
 
+## Updates
+
+New versions are published as [GitHub releases](https://github.com/DavidPujals/segment-deck/releases). Inside the
+app, **Settings → About & updates → Check for updates** compares the running version against the latest release; if
+there is a newer one it downloads it and swaps the exe in place. Click **Restart now** to finish. Resolume keeps playing
+while the app restarts, and your settings and library are untouched. Do it between services, not during one.
+
+### Cutting a release (maintainers)
+
+1. Bump `<Version>` in `src/SegmentDeck.App/SegmentDeck.App.csproj` (e.g. `0.3.0`).
+2. Publish, then create the release with the exe under the asset name `SegmentDeck.exe`:
+
+   ```bash
+   dotnet publish src/SegmentDeck.App/SegmentDeck.App.csproj -c Release -o publish/SegmentDeck
+   ```
+
+   ```bash
+   gh release create v0.3.0 publish/SegmentDeck/SegmentDeck.exe --title "v0.3.0" --notes "What changed"
+   ```
+
+   The tag (`v0.3.0`) must match the csproj version, and each release should carry exactly one `.exe` asset.
+
 ## Library layout
 
 ```
@@ -163,7 +184,7 @@ dotnet test tests/SegmentDeck.Core.Tests
 Two tests are opt-in: `SEGMENTDECK_ARENA_TESTS=1` kills and relaunches a local Arena to prove the reconnect
 (never on the show PC during a service); `SEGMENTDECK_FFMPEG` + `SEGMENTDECK_TEST_VIDEO` exercise ffmpeg.
 
-Self-contained publish (copy the folder to any Windows 10/11 x64 PC):
+Self-contained single-file publish (copy `SegmentDeck.exe` to any Windows 10/11 x64 PC):
 
 ```bash
 dotnet publish src/SegmentDeck.App/SegmentDeck.App.csproj -c Release -o publish/SegmentDeck
