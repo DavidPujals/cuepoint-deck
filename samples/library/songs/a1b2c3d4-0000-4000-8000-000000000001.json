@@ -10,14 +10,78 @@
   },
   "durationMs": 195240,
   "segments": [
-    { "id": "seg-intro", "name": "Intro", "startMs": 0, "color": "#8E8E93", "lyric": "" },
-    { "id": "seg-v1", "name": "Verse 1", "startMs": 12000, "color": "#4A90D9", "lyric": "First line of verse one" },
-    { "id": "seg-ch1", "name": "Chorus", "startMs": 48000, "color": "#F5A623", "lyric": "Shout for joy" },
-    { "id": "seg-v2", "name": "Verse 2", "startMs": 78000, "color": "#4A90D9", "lyric": "First line of verse two" },
-    { "id": "seg-ch2", "name": "Chorus", "startMs": 108000, "color": "#F5A623", "lyric": "Shout for joy" },
-    { "id": "seg-br", "name": "Bridge", "startMs": 138000, "color": "#BD10E0", "lyric": "Bridge first line" },
-    { "id": "seg-ch3", "name": "Chorus", "startMs": 162000, "color": "#F5A623", "lyric": "Shout for joy" },
-    { "id": "seg-out", "name": "Outro", "startMs": 186000, "color": "#8E8E93", "lyric": "" }
+    {
+      "id": "seg-intro",
+      "name": "Intro",
+      "startMs": 0,
+      "color": "#8E8E93",
+      "lyric": "",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-intro.jpg",
+      "thumbAtMs": 0
+    },
+    {
+      "id": "seg-v1",
+      "name": "Verse 1",
+      "startMs": 12000,
+      "color": "#4A90D9",
+      "lyric": "First line of verse one",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-v1.jpg",
+      "thumbAtMs": 12000
+    },
+    {
+      "id": "seg-ch1",
+      "name": "Chorus",
+      "startMs": 48000,
+      "color": "#F5A623",
+      "lyric": "Shout for joy",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-ch1.jpg",
+      "thumbAtMs": 48000
+    },
+    {
+      "id": "seg-v2",
+      "name": "Verse 2",
+      "startMs": 78000,
+      "color": "#4A90D9",
+      "lyric": "First line of verse two",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-v2.jpg",
+      "thumbAtMs": 78000
+    },
+    {
+      "id": "seg-ch2",
+      "name": "Chorus",
+      "startMs": 108000,
+      "color": "#F5A623",
+      "lyric": "Shout for joy",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-ch2.jpg",
+      "thumbAtMs": 108000
+    },
+    {
+      "id": "seg-br",
+      "name": "Bridge",
+      "startMs": 138000,
+      "color": "#BD10E0",
+      "lyric": "Bridge first line",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-br.jpg",
+      "thumbAtMs": 138000
+    },
+    {
+      "id": "seg-ch3",
+      "name": "Chorus",
+      "startMs": 162000,
+      "color": "#F5A623",
+      "lyric": "Shout for joy",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-ch3.jpg",
+      "thumbAtMs": 162000
+    },
+    {
+      "id": "seg-out",
+      "name": "Outro",
+      "startMs": 186000,
+      "color": "#8E8E93",
+      "lyric": "",
+      "thumb": "thumbs/a1b2c3d4-0000-4000-8000-000000000001/seg-out.jpg",
+      "thumbAtMs": 186000
+    }
   ],
   "updatedAt": "2026-09-28T12:00:00Z"
 }

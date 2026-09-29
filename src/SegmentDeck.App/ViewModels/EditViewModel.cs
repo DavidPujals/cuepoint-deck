@@ -523,6 +523,17 @@ public partial class EditViewModel : ObservableObject
         SaveStatusText = failed == 0 ? $"Saved · {done} thumbnail(s) rendered" : $"Saved · {done} thumbnail(s) rendered, {failed} failed (see log)";
     }
 
+    /// <summary>For songs saved before ffmpeg was set up, or after the media file moved: render every missing or stale thumbnail.</summary>
+    [RelayCommand]
+    private async Task RenderThumbnailsAsync()
+    {
+        if (_song is null) return;
+        if (IsDirty || _isNew) { await SaveAsync(); return; }
+        foreach (var s in Segments) s.RefreshThumb(_services.Library);
+        if (!Segments.Any(s => s.ThumbNeedsUpdate)) { SaveStatusText = "All thumbnails are up to date"; return; }
+        await GenerateThumbnailsAsync(_song);
+    }
+
     [RelayCommand]
     private void DeleteSong()
     {
