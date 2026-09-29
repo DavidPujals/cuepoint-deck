@@ -14,6 +14,11 @@ public interface ISegmentController
 
     void ClearQueue();
 
+    /// <summary>Repeat a segment at its end until turned off, Esc, or the song changes. Toggles.</summary>
+    void ToggleLoop(Song song, Segment segment);
+
+    void ClearLoop();
+
     /// <summary>Connect the song's clip on the song layer (only when "Launch songs from setlist" is on).</summary>
     Task LaunchSongAsync(Song song);
 }

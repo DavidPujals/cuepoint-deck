@@ -97,6 +97,10 @@ must be set to the Follow role.
 - **Cut** jumps now. **Queue** waits for the current segment to end, then jumps. A queued card pulses with a
   countdown. Only one segment can be queued; queuing another replaces it. If the queued segment is the natural
   next one, nothing is sent. A paused clip holds the queue.
+- **Loop** (the ↻ on a card, L for the live segment, or the right-click menu) repeats a segment: each time the
+  playhead reaches its end it seeks back to the segment's start, until you turn it off, press Esc, or the song
+  changes. The card shows "LOOP · 3.2 s" counting down to each repeat. A Queue you set takes precedence at the
+  boundary, and once another segment is live the loop waits until its segment is live again.
 - If the song's clip isn't live: with "Launch songs from setlist" off the card flashes red and the bar says
   "Clip not live"; with it on, the clip is launched at that segment.
 - After every seek the app checks the playhead landed within 250 ms of the target within 500 ms and warns if not.
@@ -109,7 +113,8 @@ Keys (only while the Segment Deck window has focus; nothing is global because Re
 |---|---|
 | 1–9, 0 | Fire segment 1–10 with the default trigger |
 | Shift + 1–9, 0 | Fire with the other trigger |
-| Esc | Clear the queue |
+| Esc | Clear the queue and the loop |
+| L | Loop the live segment on / off |
 | Left / Right | Select previous / next song in the setlist strip |
 | Enter | Launch the selected setlist song (only with "Launch songs from setlist" on); a double-click on the song does the same |
 | E | Edit mode for the current song |
@@ -240,7 +245,9 @@ Everything below was only checked on a development PC with Arena on the same mac
 2. **Eyes on the projector** for the launch orders: launch a song at a mid-song segment with "Launch songs
    from setlist" on, once with the clip's retrigger set to Continue and once with Restart. There should be no
    flash of the clip's first frame.
-3. **Queue timing**: queue a chorus during a verse, locally and remotely, and tune the latency offset per host
+3. **Loop**: loop a chorus and watch several repeats land on the beat; then Queue a bridge during the loop and
+   confirm the queue wins at the boundary and the loop stays idle afterwards.
+4. **Queue timing**: queue a chorus during a verse, locally and remotely, and tune the latency offset per host
    until the jump lands within a frame or two of the boundary.
 4. **Resilience**: kill and restart Resolume with the app connected; unplug the operator PC's network for
    30 s. Both should recover without touching the app.

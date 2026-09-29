@@ -6,7 +6,7 @@ using SegmentDeck.Core.Settings;
 
 namespace SegmentDeck.Core.Playback;
 
-public enum TriggerKind { Cut, Queue, Launch }
+public enum TriggerKind { Cut, Queue, Launch, Loop }
 
 public sealed class QueuedSegment
 {
@@ -15,6 +15,8 @@ public sealed class QueuedSegment
     public required int SegmentIndex { get; init; }
     /// <summary>True when the queued segment is the one that would play next anyway: nothing is sent at the boundary.</summary>
     public bool IsNatural { get; init; }
+    /// <summary>Armed by the loop, not the operator: at the end of this segment, seek back to its own start.</summary>
+    public bool IsLoop { get; init; }
     public long CreatedAt { get; init; } = Stopwatch.GetTimestamp();
 }
 
@@ -44,6 +46,8 @@ public sealed class SegmentController : ISegmentController, IDisposable
     private Song? _currentSong;
     private QueuedSegment? _queued;
     private SeekProbe? _probe;
+    /// <summary>Index of the segment that repeats at its end, or -1. Cleared by Esc and when the song changes.</summary>
+    private int _loopIndex = -1;
 
     private sealed class SeekProbe
     {
@@ -55,6 +59,8 @@ public sealed class SegmentController : ISegmentController, IDisposable
 
     public Song? CurrentSong { get { lock (_gate) return _currentSong; } }
     public QueuedSegment? Queued { get { lock (_gate) return _queued; } }
+    public int LoopIndex { get { lock (_gate) return _loopIndex; } }
+    public event Action? LoopChanged;
     public PlayheadEstimator Estimator => _estimator;
 
     /// <summary>Follow role: show everything, fire nothing.</summary>
@@ -99,7 +105,55 @@ public sealed class SegmentController : ISegmentController, IDisposable
         _estimator.Reset(clip?.DurationMs ?? 0);
         if (clip is not null) _estimator.SetTransport(clip.Speed, clip.IsPaused);
         ClearQueue("song changed");
+        SetLoop(-1, "song changed");
         try { CurrentSongChanged?.Invoke(song); } catch (Exception ex) { Log.Error("CurrentSongChanged handler", ex); }
+    }
+
+    /// <summary>Loop one segment: when the playhead reaches its end it seeks back to the segment's start, every time,
+    /// until the loop is turned off, Esc is pressed, or the song changes. An operator's Queue takes precedence at the
+    /// boundary, and once another segment is live nothing repeats until this one is live again.</summary>
+    public void ToggleLoop(Song song, Segment segment)
+    {
+        if (ReadOnly) { Reject(segment, "Follow role: this instance cannot loop segments"); return; }
+        var index = song.Segments.IndexOf(segment);
+        if (index < 0) return;
+        if (CurrentSong?.Id != song.Id) { Reject(segment, "Song is not live"); return; }
+        SetLoop(LoopIndex == index ? -1 : index, LoopIndex == index ? "turned off" : $"on {segment.Name}");
+    }
+
+    public void ClearLoop() => SetLoop(-1, "cleared");
+
+    private void SetLoop(int index, string why)
+    {
+        int had; QueuedSegment? loopQueue = null;
+        lock (_gate)
+        {
+            had = _loopIndex;
+            if (had == index) return;
+            _loopIndex = index;
+            if (_queued is { IsLoop: true }) { loopQueue = _queued; _queued = null; }
+        }
+        Log.Info(index < 0 ? $"Loop off ({why})" : $"LOOP {why}: repeats at {Fmt(CurrentSong?.SegmentEndMs(index) ?? 0)}");
+        if (loopQueue is not null) Raise(() => QueueChanged?.Invoke());
+        Raise(() => LoopChanged?.Invoke());
+        _wake.Set();
+    }
+
+    /// <summary>Called from the timer: while the looped segment is live and nothing else is queued, hold an internal
+    /// queue entry that seeks back to its start at the boundary. Not re-armed inside the firing window, so the seek
+    /// that was just sent has time to move the playhead before the next pass is scheduled.</summary>
+    private void ArmLoopIfDue()
+    {
+        Song? song; int loop;
+        lock (_gate) { song = _currentSong; loop = _loopIndex; if (_queued is not null) return; }
+        if (song is null || loop < 0 || loop >= song.Segments.Count) return;
+        if (_estimator.EstimateMs() is not double pos || _estimator.IsStale) return;
+        if (song.SegmentIndexAt(pos) != loop) return;
+        var fireAt = song.BoundaryAfter(pos) - _settings().LatencyOffsetMs;
+        if (pos >= fireAt - 150) return;
+        var q = new QueuedSegment { Song = song, Segment = song.Segments[loop], SegmentIndex = loop, IsLoop = true };
+        lock (_gate) { if (_queued is not null || _loopIndex != loop) return; _queued = q; }
+        Raise(() => QueueChanged?.Invoke());
     }
 
     // ------------------------------------------------------------------ ISegmentController
@@ -147,7 +201,7 @@ public sealed class SegmentController : ISegmentController, IDisposable
         QueuedSegment? had;
         lock (_gate) { had = _queued; _queued = null; }
         if (had is null) return;
-        Log.Info($"Queue cleared ({why}): {had.Segment.Name}");
+        if (!had.IsLoop) Log.Info($"Queue cleared ({why}): {had.Segment.Name}");
         Raise(() => QueueChanged?.Invoke());
     }
 
@@ -352,8 +406,9 @@ public sealed class SegmentController : ISegmentController, IDisposable
 
             if (q is null)
             {
-                _wake.WaitOne(probe is null ? 500 : 100);
-                continue;
+                ArmLoopIfDue();
+                lock (_gate) q = _queued;
+                if (q is null) { _wake.WaitOne(probe is null ? 500 : 100); continue; }
             }
 
             var waitMs = Evaluate(q);
@@ -374,7 +429,14 @@ public sealed class SegmentController : ISegmentController, IDisposable
         if (_estimator.IsStale) return 100;
 
         var currentIndex = song.SegmentIndexAt(pos);
-        if (currentIndex == q.SegmentIndex)
+        if (q.IsLoop && currentIndex != q.SegmentIndex)
+        {
+            // The operator cut elsewhere (or the loop was turned off): this pass is over; ArmLoopIfDue re-arms if needed.
+            lock (_gate) if (ReferenceEquals(_queued, q)) _queued = null;
+            Raise(() => QueueChanged?.Invoke());
+            return 0;
+        }
+        if (!q.IsLoop && currentIndex == q.SegmentIndex)
         {
             // We are already inside the queued segment (someone seeked there, or the natural boundary passed).
             ClearQueue(q.IsNatural ? "reached naturally" : "already there");
@@ -382,8 +444,8 @@ public sealed class SegmentController : ISegmentController, IDisposable
         }
 
         var boundary = song.BoundaryAfter(pos);
-        var natural = currentIndex >= 0 ? q.SegmentIndex == currentIndex + 1 && !song.HasGapAfter(currentIndex)
-                                        : q.SegmentIndex == song.NextSegmentIndexAfter(pos);
+        var natural = !q.IsLoop && (currentIndex >= 0 ? q.SegmentIndex == currentIndex + 1 && !song.HasGapAfter(currentIndex)
+                                                      : q.SegmentIndex == song.NextSegmentIndexAfter(pos));
         var fireAt = natural ? boundary : boundary - _settings().LatencyOffsetMs;
         var speed = Math.Max(0.05, _estimator.Speed);
         var remaining = (fireAt - pos) / speed;
@@ -408,10 +470,10 @@ public sealed class SegmentController : ISegmentController, IDisposable
             Raise(() => QueueChanged?.Invoke());
             return 0;
         }
-        Log.Info($"QUEUE FIRE -> {q.Segment.Name} @ {Fmt(q.Segment.StartMs)} (estimate {Fmt(pos)}, boundary {Fmt(boundary)}, offset {_settings().LatencyOffsetMs} ms)");
+        Log.Info($"{(q.IsLoop ? "LOOP" : "QUEUE FIRE")} -> {q.Segment.Name} @ {Fmt(q.Segment.StartMs)} (estimate {Fmt(pos)}, boundary {Fmt(boundary)}, offset {_settings().LatencyOffsetMs} ms)");
         _ = SeekAsync(clip, q.Segment.StartMs, q.Segment.Name);
         Raise(() => QueueChanged?.Invoke());
-        Raise(() => Fired?.Invoke(q.Segment, TriggerKind.Queue));
+        Raise(() => Fired?.Invoke(q.Segment, q.IsLoop ? TriggerKind.Loop : TriggerKind.Queue));
         return 0;
     }
 

@@ -120,6 +120,61 @@ public class SegmentControllerTests : IDisposable
     }
 
     [Fact]
+    public void Loop_seeks_back_to_the_segment_start_at_its_end_and_re_arms()
+    {
+        // Chorus runs 1000..5000. Loop it: at ~4960 (offset 40) a seek to 1000 goes out; after the playhead is back
+        // near the start the loop arms again for the next pass; Esc-style ClearLoop stops it.
+        _link.Feed(_clip, 2000);
+        _ctl.ToggleLoop(_song, _song.Segments[1]);
+        Assert.Equal(1, _ctl.LoopIndex);
+        SpinUntil(() => _ctl.Queued is { IsLoop: true }, 700);
+        Assert.True(_ctl.Queued!.IsLoop);
+
+        _link.Feed(_clip, 4970);
+        SpinUntil(() => _link.Seeks.Count > 0, 700);
+        Assert.Single(_link.Seeks);
+        Assert.Equal(1000, _link.Seeks[0].Ms);
+        Assert.Contains(_fired, f => f.Item2 == TriggerKind.Loop);
+
+        _link.Feed(_clip, 1100);
+        SpinUntil(() => _ctl.Queued is { IsLoop: true }, 700);
+        Assert.True(_ctl.Queued!.IsLoop);
+
+        _ctl.ClearLoop();
+        Assert.Equal(-1, _ctl.LoopIndex);
+        SpinUntil(() => _ctl.Queued is null, 700);
+        Assert.Null(_ctl.Queued);
+
+        // With the loop off, running past the end sends nothing more.
+        _link.Feed(_clip, 4990);
+        Thread.Sleep(200);
+        Assert.Single(_link.Seeks);
+    }
+
+    [Fact]
+    public async Task Operator_queue_wins_over_the_loop_at_the_boundary()
+    {
+        _link.Feed(_clip, 2000);
+        _ctl.ToggleLoop(_song, _song.Segments[1]);
+        SpinUntil(() => _ctl.Queued is { IsLoop: true }, 700);
+        await _ctl.QueueAsync(_song, _song.Segments[2]);        // Bridge is the natural next: nothing is sent
+        Assert.False(_ctl.Queued!.IsLoop);
+        _link.Feed(_clip, 4999);
+        SpinUntil(() => _ctl.Queued is null, 700);
+        _link.Feed(_clip, 5100);                                // now in the Bridge: the loop stays set but idle
+        Thread.Sleep(150);
+        Assert.Empty(_link.Seeks);
+        Assert.Equal(1, _ctl.LoopIndex);
+        Assert.Null(_ctl.Queued);
+    }
+
+    private static void SpinUntil(Func<bool> condition, int timeoutMs)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs && !condition()) Thread.Sleep(10);
+    }
+
+    [Fact]
     public async Task Natural_next_sends_nothing_and_clears_at_boundary()
     {
         await _ctl.QueueAsync(_song, _song.Segments[1]);

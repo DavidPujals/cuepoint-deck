@@ -105,6 +105,20 @@
         </Setter>
     </Style>
 
+    <!-- the small ↻ on a segment card -->
+    <Style x:Key="LoopButton" TargetType="ToggleButton" BasedOn="{StaticResource PinButton}">
+        <Setter Property="Background" Value="#99000000"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Style.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="FontWeight" Value="Bold"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background" Value="#4A1F1C"/>
         <Setter Property="BorderBrush" Value="#7A332E"/>

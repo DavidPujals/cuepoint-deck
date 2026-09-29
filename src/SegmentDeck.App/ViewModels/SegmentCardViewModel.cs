@@ -30,6 +30,8 @@ public partial class SegmentCardViewModel : ObservableObject
     [ObservableProperty] private bool _isQueued;
     [ObservableProperty] private string _queueText = "";
     [ObservableProperty] private bool _isFlashing;
+    /// <summary>The loop is set on this segment (it repeats at its end whenever it is live).</summary>
+    [ObservableProperty] private bool _isLooping;
 
     public SegmentCardViewModel(ShowViewModel owner, Song song, Segment segment, int index, BitmapImage? thumb)
     {
@@ -43,4 +45,5 @@ public partial class SegmentCardViewModel : ObservableObject
 
     [RelayCommand] private Task Cut() => _owner.FireAsync(this, Core.Settings.TriggerMode.Cut);
     [RelayCommand] private Task Queue() => _owner.FireAsync(this, Core.Settings.TriggerMode.Queue);
+    [RelayCommand] private void ToggleLoop() => _owner.ToggleLoop(this);
 }

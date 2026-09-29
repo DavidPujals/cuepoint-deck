@@ -24,6 +24,7 @@
                     <ContextMenu>
                         <MenuItem Header="Cut (jump now)" Command="{Binding CutCommand}"/>
                         <MenuItem Header="Queue (at end of current segment)" Command="{Binding QueueCommand}"/>
+                        <MenuItem Header="Loop (repeat at its end until turned off)" Command="{Binding ToggleLoopCommand}"/>
                     </ContextMenu>
                 </Border.ContextMenu>
                 <Grid>
@@ -49,12 +50,16 @@
                         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Background="#CC000000" CornerRadius="5" Padding="7,1" Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
                             <TextBlock Text="{Binding NumberLabel}" FontSize="15" FontWeight="Bold" Foreground="White"/>
                         </Border>
-                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Background="#DD000000" CornerRadius="5" Padding="7,2" Visibility="{Binding IsQueued, Converter={StaticResource Vis}}">
+                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6,6,34,6" Background="#DD000000" CornerRadius="5" Padding="7,2" Visibility="{Binding IsQueued, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding QueueText}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
                         </Border>
                         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1" Visibility="{Binding IsNext, Converter={StaticResource Vis}}">
                             <TextBlock Text="next" FontSize="11" Foreground="{StaticResource MutedBrush}"/>
                         </Border>
+                        <!-- loop: repeats this segment at its end until turned off; lit when set -->
+                        <ToggleButton HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Width="24" Height="22" Padding="0" FontSize="14"
+                                      Style="{StaticResource LoopButton}" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"
+                                      Content="↻" ToolTip="Loop this segment: at its end, jump back to its start (L for the live segment, Esc clears)"/>
                         <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1">
                             <TextBlock Text="{Binding StartText}" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource MutedBrush}"/>
                         </Border>

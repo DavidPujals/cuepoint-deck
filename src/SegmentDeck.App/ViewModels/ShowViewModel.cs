@@ -102,6 +102,7 @@ public partial class ShowViewModel : ObservableObject
         _hooked = ctl;
         ctl.CurrentSongChanged += _ => Post(RefreshLive);
         ctl.QueueChanged += () => Post(RefreshQueue);
+        ctl.LoopChanged += () => Post(RefreshLoop);
         ctl.Rejected += r => Post(() => OnRejected(r));
         ctl.Fired += (s, k) => Post(() => _shell.Flash($"{k}: {s.Name}", transient: true));
     }
@@ -112,8 +113,8 @@ public partial class ShowViewModel : ObservableObject
     {
         CardScale = Math.Clamp(_services.Settings.CardScale, 0.6, 2.0);
         DefaultTriggerHint = _services.Settings.DefaultTrigger == TriggerMode.Queue
-            ? "Click or number key = Queue · Shift = Cut · Right-click for both · Esc clears the queue"
-            : "Click or number key = Cut · Shift = Queue · Right-click for both · Esc clears the queue";
+            ? "Click or number key = Queue · Shift = Cut · Right-click for both · ↻ or L loops a segment · Esc clears queue and loop"
+            : "Click or number key = Cut · Shift = Queue · Right-click for both · ↻ or L loops a segment · Esc clears queue and loop";
         RefreshLive();
         RefreshSetlists();
     }
@@ -152,6 +153,7 @@ public partial class ShowViewModel : ObservableObject
             if (idx >= 0) SetSelected(idx);
         }
         RefreshQueue();
+        RefreshLoop();
     }
 
     private void BuildSong(Song? song, ClipInfo? clip)
@@ -210,6 +212,18 @@ public partial class ShowViewModel : ObservableObject
         }
     }
 
+    private void RefreshLoop()
+    {
+        var loop = _services.Controller.LoopIndex;
+        foreach (var card in Cards) card.IsLooping = card.Index == loop;
+    }
+
+    public void ToggleLoop(SegmentCardViewModel card)
+    {
+        if (_services.Settings.Role == AppRole.Follow) { _shell.Flash("FOLLOW role: this instance cannot loop segments", transient: true); return; }
+        _services.Controller.ToggleLoop(card.Song, card.Segment);
+    }
+
     /// <summary>30 Hz: progress bars, times, live/next highlights and the queue countdown.</summary>
     private void Tick()
     {
@@ -255,7 +269,8 @@ public partial class ShowViewModel : ObservableObject
             if (card.IsQueued)
             {
                 var countdown = _services.Controller.QueueCountdownMs();
-                card.QueueText = countdown is double c ? (_services.Estimator.IsPaused ? "QUEUED · paused" : $"QUEUED · {c / 1000:0.0} s") : "QUEUED";
+                var word = _services.Controller.Queued is { IsLoop: true } ? "LOOP" : "QUEUED";
+                card.QueueText = countdown is double c ? (_services.Estimator.IsPaused ? $"{word} · paused" : $"{word} · {c / 1000:0.0} s") : word;
             }
         }
     }
@@ -307,7 +322,8 @@ public partial class ShowViewModel : ObservableObject
         }
         switch (e.Key)
         {
-            case Key.Escape: _services.Controller.ClearQueue(); return true;
+            case Key.Escape: _services.Controller.ClearQueue(); _services.Controller.ClearLoop(); return true;
+            case Key.L: { var live = Cards.FirstOrDefault(c => c.IsLive); if (live is not null) ToggleLoop(live); return true; }
             case Key.Left: MoveSelection(-1); return true;
             case Key.Right: MoveSelection(1); return true;
             case Key.Enter: if (CanLaunch) _ = LaunchSelectedAsync(); return true;
