@@ -204,6 +204,8 @@ public partial class EditViewModel : ObservableObject
 
     public void Stop() { _timer.Stop(); _filmstripCts?.Cancel(); _suggestCts?.Cancel(); IsPlaying = false; }
 
+    [RelayCommand] private void OpenSetlists() => _shell.OpenSetlists();
+
     // ------------------------------------------------------------------ song list
 
     private void RefreshSongList()

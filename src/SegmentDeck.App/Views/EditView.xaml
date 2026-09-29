@@ -24,7 +24,9 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid>
+    <!-- Below about 1000x560 the panels would crush each other, so the view keeps that size and scrolls instead. -->
+    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False">
+    <Grid MinWidth="980" MinHeight="540">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>
             <ColumnDefinition Width="10"/>
@@ -39,7 +41,9 @@
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="EDIT MODE — never sends to Resolume"/>
                 <StackPanel DockPanel.Dock="Top">
                     <Button Content="New song from composition…" Command="{Binding NewFromCompositionCommand}" Margin="0,0,0,4" MinHeight="30" FontSize="12"/>
-                    <Button Content="New song from a file…" Command="{Binding NewFromFileCommand}" Margin="0,0,0,8" MinHeight="30" FontSize="12"/>
+                    <Button Content="New song from a file…" Command="{Binding NewFromFileCommand}" Margin="0,0,0,4" MinHeight="30" FontSize="12"/>
+                    <Button Content="Setlists…" Command="{Binding OpenSetlistsCommand}" Margin="0,0,0,8" MinHeight="30" FontSize="12"
+                            ToolTip="Create, rename and order the setlists shown in the top bar in Show mode"/>
                 </StackPanel>
                 <Button DockPanel.Dock="Bottom" Content="Open library folder" Style="{StaticResource SmallButton}" Margin="0,8,0,0" Command="{Binding OpenLibraryFolderCommand}"/>
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Text="LIBRARY"/>
@@ -279,4 +283,5 @@
             </DockPanel>
         </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>

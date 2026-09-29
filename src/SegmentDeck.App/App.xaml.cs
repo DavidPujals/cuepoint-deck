@@ -36,6 +36,7 @@ public partial class App : Application
         Services.Start();
 
         var window = new MainWindow();
+        ApplyDebugScreenshotSize(window);
         MainWindow = window;
         window.Show();
         ArmDebugScreenshot(window);
@@ -81,6 +82,19 @@ public partial class App : Application
                 Log.Info($"OCR test {Path.GetFileName(image)} ({SegmentDeck.App.Services.WindowsOcr.LanguageTag}): {lines.Count} lines: {string.Join(" | ", lines)}  → note: \"{SegmentDeck.App.Services.WindowsOcr.ToLyricNote(lines)}\"");
             }
         });
+    }
+
+    /// <summary>Test aid: SEGMENTDECK_SCREENSHOT_SIZE=WxH lays the window out at that size for a screenshot. It is
+    /// parked off-screen and never activated, so it lays out at full size without taking the keyboard from whoever
+    /// is using the PC (a minimised window keeps its old layout size, which is why this exists).</summary>
+    private static void ApplyDebugScreenshotSize(Window window)
+    {
+        var size = Environment.GetEnvironmentVariable("SEGMENTDECK_SCREENSHOT_SIZE")?.Split('x');
+        if (size is not { Length: 2 } || !double.TryParse(size[0], out var w) || !double.TryParse(size[1], out var h)) return;
+        window.WindowStartupLocation = WindowStartupLocation.Manual;
+        window.Left = -w - 200; window.Top = 0;
+        window.Width = w; window.Height = h;
+        window.ShowActivated = false;
     }
 
     /// <summary>Test aid: SEGMENTDECK_SCREENSHOT=<png path> saves the window after a few seconds

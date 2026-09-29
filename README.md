@@ -89,7 +89,7 @@ must be set to the Follow role.
 - One top bar holds everything: the connection light (green connected, amber reconnecting, red disconnected;
   hover it for the address and Resolume version, which also appear in Settings), the active setlist and its songs
   in order (Show mode only), warnings, the role badge, the pin that keeps the window above Resolume, the button
-  that switches between Show and Edit mode, and Setlists, Settings and Log.
+  that switches between Show and Edit mode, and Settings (which also holds the log and the updater).
 - When a song clip is connected in Resolume, its song appears automatically with the whole-clip progress bar
   (segment boundaries as ticks) and the segment cards. The live segment is lit in its colour; the one that
   would play next has a small "next" marker.
@@ -152,13 +152,11 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 
 ### Setlists
 
-Two ways to get a running order:
+The top bar's dropdown lists the saved setlists; the first one is active until you pick another, and the choice is
+remembered per PC. A clip that is live in Resolume but not in the library still shows in the header with an
+**Add to library** button.
 
-- **From Resolume columns** (first entry in the strip's dropdown): one entry per column that has a clip on the
-  song layer, in column order, named after the column (or the song when the column is unnamed). It rebuilds itself
-  whenever the composition changes. Entries whose clip isn't in the library yet show in italics; they can still be
-  launched from the top, and the header's **Add to library** button builds the song once the clip is live.
-- **Saved setlists**: **Setlists** in the top bar: create, rename, duplicate, delete, drag
+- **Saved setlists**: **Setlists…** in Edit mode's left panel: create, rename, duplicate, delete, drag
   or use Up/Down to reorder, remove. The list of songs to add on the right is **Resolume's columns on the song layer**
   (Resolume holds the whole catalogue, so a service is picked from it column by column). Adding a column whose clip
   already has a song in the library adds that song; adding one that doesn't creates a stub song for it (title from the

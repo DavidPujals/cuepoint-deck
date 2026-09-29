@@ -11,6 +11,7 @@
         <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
         <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:ScaleConverter x:Key="Scale"/>
+        <app:WidthBelowConverter x:Key="Wide" Invert="True"/>
         <app:ImageAspectConverter x:Key="Aspect"/>
 
         <!-- one segment card -->
@@ -130,9 +131,10 @@
                         <TextBlock Grid.Column="2" Text="{Binding RemainingText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
                     </Grid>
                 </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="14,0,0,0" HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding CannotFireReason}" Foreground="{StaticResource WarnBrush}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right" Visibility="{Binding CannotFireReason, Converter={StaticResource NotNullVis}}"/>
-                    <TextBlock Text="{Binding DefaultTriggerHint}" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="14,0,0,0" HorizontalAlignment="Right" MaxWidth="440">
+                    <TextBlock Text="{Binding CannotFireReason}" Foreground="{StaticResource WarnBrush}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right" TextWrapping="Wrap" TextAlignment="Right" Visibility="{Binding CannotFireReason, Converter={StaticResource NotNullVis}}"/>
+                    <TextBlock Text="{Binding DefaultTriggerHint}" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Right" Margin="0,4,0,0" TextWrapping="Wrap" TextAlignment="Right"
+                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1000}"/>
                 </StackPanel>
             </Grid>
         </Border>

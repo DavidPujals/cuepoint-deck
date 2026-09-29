@@ -72,3 +72,18 @@ public sealed class ImageAspectConverter : IValueConverter
         => value is System.Windows.Media.Imaging.BitmapSource { PixelHeight: > 0 } b ? b.PixelWidth / (double)b.PixelHeight : Controls.AspectBox.DefaultRatio;
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>Visible when a width (usually the window's ActualWidth) is below the threshold in ConverterParameter;
+/// Invert flips it. Lets the top bar and headers drop to a second row or hide hints on small windows.</summary>
+public sealed class WidthBelowConverter : IValueConverter
+{
+    public bool Invert { get; set; }
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var width = value is double d ? d : 0;
+        var threshold = double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var t) ? t : 0;
+        var below = width < threshold;
+        return (below ^ Invert) ? Visibility.Visible : Visibility.Collapsed;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

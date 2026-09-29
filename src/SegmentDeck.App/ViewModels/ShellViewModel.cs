@@ -24,7 +24,6 @@ public partial class ShellViewModel : ObservableObject
     private string _transient = "";
     private DateTime _transientUntil = DateTime.MinValue;
     private bool _transientWarn;
-    private Views.LogWindow? _logWindow;
 
     // ---- status bar
     [ObservableProperty] private Brush _lightBrush = Brushes.Red;
@@ -173,7 +172,8 @@ public partial class ShellViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings()
     {
-        var w = new Views.SettingsWindow(_services) { Owner = Application.Current.MainWindow };
+        Views.SettingsWindow? w = null;
+        w = new Views.SettingsWindow(_services, () => OpenLog(owner: w!)) { Owner = Application.Current.MainWindow };
         w.ShowDialog();
     }
 
@@ -184,12 +184,12 @@ public partial class ShellViewModel : ObservableObject
         w.ShowDialog();
     }
 
-    [RelayCommand]
-    private void OpenLog()
+    /// <summary>The log opens from Settings. While that dialog is up every other window is disabled, so the log is
+    /// shown as a dialog on top of it rather than as the free-floating window it used to be.</summary>
+    private void OpenLog(Window owner)
     {
-        if (_logWindow is { IsLoaded: true }) { _logWindow.Activate(); return; }
-        _logWindow = new Views.LogWindow(LogLines) { Owner = Application.Current.MainWindow };
-        _logWindow.Show();
+        var w = new Views.LogWindow(LogLines) { Owner = owner };
+        w.ShowDialog();
     }
 
     /// <summary>Window-level keys. Text boxes keep their own keys; Ctrl+S saves in Edit mode.</summary>

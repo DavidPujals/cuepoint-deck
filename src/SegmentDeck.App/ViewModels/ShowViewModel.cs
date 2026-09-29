@@ -65,7 +65,6 @@ public partial class ShowViewModel : ObservableObject
 
     // ---- setlist strip
     /// <summary>Dropdown entry that builds the running order live from Resolume's columns on the song layer.</summary>
-    public const string ResolumeSetlistName = "◆ From Resolume columns";
     [ObservableProperty] private bool _isSetlistVisible = true;
     public ObservableCollection<string> SetlistNames { get; } = new();
     [ObservableProperty] private string? _activeSetlistName;
@@ -81,7 +80,7 @@ public partial class ShowViewModel : ObservableObject
         _dispatcher = dispatcher;
 
         _services.LiveChanged += () => Post(RefreshLive);
-        _services.MatchesChanged += () => Post(() => { if (ActiveSetlistName == ResolumeSetlistName) LoadActiveSetlist(); else RefreshLive(); });
+        _services.MatchesChanged += () => Post(RefreshLive);
         _services.SettingsChanged += () => Post(() => { HookController(); ApplySettings(); });
         _services.LibraryChanged += () => Post(RefreshSetlists);
         HookController();
@@ -326,10 +325,9 @@ public partial class ShowViewModel : ObservableObject
         try
         {
             SetlistNames.Clear();
-            SetlistNames.Add(ResolumeSetlistName);
             foreach (var s in lib.Setlists) SetlistNames.Add(s.Name);
             var wanted = _services.Settings.ActiveSetlist;
-            ActiveSetlistName = wanted is not null && SetlistNames.Contains(wanted) ? wanted : null;
+            ActiveSetlistName = wanted is not null && SetlistNames.Contains(wanted) ? wanted : SetlistNames.FirstOrDefault();
         }
         finally { _suppressSetlistChange = false; }
         LoadActiveSetlist();
@@ -351,18 +349,14 @@ public partial class ShowViewModel : ObservableObject
     {
         var selectedKey = SelectedSetlistIndex >= 0 && SelectedSetlistIndex < SetlistSongs.Count ? ItemKey(SetlistSongs[SelectedSetlistIndex]) : null;
         SetlistSongs.Clear();
-        if (ActiveSetlistName == ResolumeSetlistName) BuildFromResolumeColumns();
-        else
+        var setlist = ActiveSetlistName is null ? null : _services.Library.GetSetlist(ActiveSetlistName);
+        if (setlist is not null)
         {
-            var setlist = ActiveSetlistName is null ? null : _services.Library.GetSetlist(ActiveSetlistName);
-            if (setlist is not null)
+            foreach (var id in setlist.SongIds)
             {
-                foreach (var id in setlist.SongIds)
-                {
-                    var song = _services.Library.GetSong(id);
-                    if (song is null) continue;
-                    SetlistSongs.Add(new SetlistSongItem { Song = song, Title = song.Title, IsAvailable = _services.Matches.For(id)?.IsAvailable == true, IsCurrent = _song?.Id == id });
-                }
+                var song = _services.Library.GetSong(id);
+                if (song is null) continue;
+                SetlistSongs.Add(new SetlistSongItem { Song = song, Title = song.Title, IsAvailable = _services.Matches.For(id)?.IsAvailable == true, IsCurrent = _song?.Id == id });
             }
         }
         var idx = selectedKey is null ? -1 : SetlistSongs.ToList().FindIndex(i => ItemKey(i) == selectedKey);
@@ -372,30 +366,6 @@ public partial class ShowViewModel : ObservableObject
     }
 
     private static string ItemKey(SetlistSongItem i) => i.Clip is not null ? "clip:" + i.Clip.ClipId : "song:" + i.Song?.Id;
-
-    /// <summary>One entry per column that has a clip on the song layer, in column order, named after the column.
-    /// Entries whose clip is in the library link to the song; the rest can still be launched from the top.</summary>
-    private void BuildFromResolumeColumns()
-    {
-        var comp = _services.Connection.Composition;
-        var layer = comp?.Layer(_services.Settings.SongLayer);
-        if (comp is null || layer is null) return;
-        foreach (var clip in layer.Clips)
-        {
-            if (clip.IsEmpty) continue;
-            var song = _services.Matches.SongForClip(clip.ClipId);
-            var columnName = comp.Column(clip.Column)?.Name ?? "";
-            var title = columnName.Length > 0 ? columnName : song?.Title ?? clip.Name;
-            SetlistSongs.Add(new SetlistSongItem
-            {
-                Song = song,
-                Clip = clip,
-                Title = title,
-                Detail = song is null ? $"Column {clip.Column} · not in the library" : $"Column {clip.Column} · {song.Title}",
-                IsAvailable = true,
-            });
-        }
-    }
 
     public void SetSelected(int index)
     {
