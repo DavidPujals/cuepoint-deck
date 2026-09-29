@@ -144,7 +144,10 @@
                             <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                         </Grid.RowDefinitions>
                         <Label Grid.Row="0" Content="Name"/>
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,2" FontSize="15"/>
+                        <DockPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
+                            <TextBlock DockPanel.Dock="Right" Text="any name works, e.g. Bridge 2 or Big Chorus" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" FontSize="15" ToolTip="Type any label. The buttons below are just quick picks."/>
+                        </DockPanel>
                         <Label Grid.Row="1" Content="Start"/>
                         <WrapPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
                             <TextBox Text="{Binding StartText, UpdateSourceTrigger=LostFocus}" FontFamily="Consolas" FontSize="15" Width="110" ToolTip="mm:ss.fff"/>
@@ -200,12 +203,13 @@
         <!-- ===== right: scrubber ===== -->
         <Border Grid.Column="4" Style="{StaticResource Panel}" Margin="0" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="PREVIEW SCRUBBER (from the file, via ffmpeg)"/>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="PREVIEW — follows the selected segment's start marker"/>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding SourceFileStatus}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
                 <Border DockPanel.Dock="Top" Background="Black" CornerRadius="6" Height="200">
                     <Image Source="{Binding PreviewImage}" Stretch="Uniform"/>
                 </Border>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ScrubText}" FontFamily="Consolas" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                <TextBlock DockPanel.Dock="Top" Text="{Binding PreviewKind}" FontSize="11" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
                 <Slider DockPanel.Dock="Top" x:Name="ScrubSlider" Minimum="0" Maximum="{Binding DurationMs}" Value="{Binding ScrubMs}" IsMoveToPointEnabled="True"
                         SmallChange="{Binding FrameStepMs}" LargeChange="1000" Margin="0,4" PreviewKeyDown="ScrubSlider_PreviewKeyDown" IsEnabled="{Binding ScrubberAvailable}"/>
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ScrubStatus}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>

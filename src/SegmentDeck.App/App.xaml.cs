@@ -30,6 +30,7 @@ public partial class App : Application
             args.SetObserved();
         };
 
+        DarkTitleBar.ApplyToAllWindows();
         Services = new AppServices();
         Services.Start();
 

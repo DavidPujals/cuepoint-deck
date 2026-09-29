@@ -38,6 +38,7 @@ public partial class SegmentEditItem : ObservableObject
             OnPropertyChanged(); OnPropertyChanged(nameof(StartText));
             _owner.MarkDirty();
             _owner.Resort();
+            _owner.OnSegmentStartChanged(this);
         }
     }
     public string StartText
@@ -143,7 +144,21 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private bool _scrubberAvailable;
     [ObservableProperty] private double _frameStepMs = 40;
     [ObservableProperty] private string _sourceFileStatus = "";
+    [ObservableProperty] private string _previewKind = "";
     private string? _localSourceFile;
+    private CancellationTokenSource? _exactFrameCts;
+    private string? _filmstripDir;
+
+    /// <summary>Selecting a segment, or moving its start, shows that exact frame in the scrubber.</summary>
+    partial void OnSelectedSegmentChanged(SegmentEditItem? value)
+    {
+        if (value is not null) ScrubMs = value.StartMs;
+    }
+
+    public void OnSegmentStartChanged(SegmentEditItem item)
+    {
+        if (ReferenceEquals(item, SelectedSegment)) ScrubMs = item.StartMs;
+    }
 
     public EditViewModel(AppServices services, ShellViewModel shell, Dispatcher dispatcher)
     {
@@ -376,6 +391,7 @@ public partial class EditViewModel : ObservableObject
         }
 
         var dir = FilmstripDir(_song, _localSourceFile);
+        _filmstripDir = dir;
         var cts = _filmstripCts = new CancellationTokenSource();
         if (!File.Exists(Path.Combine(dir, "done.txt")))
         {
@@ -413,13 +429,41 @@ public partial class EditViewModel : ObservableObject
     {
         ScrubText = SegmentController.Fmt(value);
         UpdatePreview();
+        _ = RequestExactFrameAsync(value);
     }
 
+    /// <summary>Immediate feedback: the nearest filmstrip frame (one every 2 s). The exact frame follows shortly after.</summary>
     private void UpdatePreview()
     {
-        if (Frames.Count == 0) { PreviewImage = null; return; }
+        if (Frames.Count == 0) { PreviewImage = null; PreviewKind = ""; return; }
         var idx = Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1);
         PreviewImage = ThumbCache.Get(Frames[idx].Path, 480);
+        PreviewKind = $"nearest preview frame ({Frames[idx].TimeText})";
+    }
+
+    /// <summary>After the scrubber settles, pull the exact frame at that time with ffmpeg so the operator sees the frame
+    /// the segment will start on. Cached next to the filmstrip; one job at a time, low priority.</summary>
+    private async Task RequestExactFrameAsync(double ms)
+    {
+        _exactFrameCts?.Cancel();
+        var cts = _exactFrameCts = new CancellationTokenSource();
+        if (_song is null || _localSourceFile is null || _filmstripDir is null || !_services.Ffmpeg.IsAvailable) return;
+        try
+        {
+            await Task.Delay(350, cts.Token);
+            var exactMs = (long)Math.Round(ms);
+            var path = Path.Combine(_filmstripDir, "exact", $"{exactMs}.jpg");
+            if (!File.Exists(path))
+            {
+                var r = await _services.Ffmpeg.ThumbnailAsync(_localSourceFile, exactMs, path, cts.Token);
+                if (!r.Ok || cts.IsCancellationRequested) return;
+            }
+            if (cts.IsCancellationRequested || Math.Abs(ScrubMs - ms) > 0.5) return;
+            PreviewImage = ThumbCache.Get(path, 480);
+            PreviewKind = $"exact frame at {SegmentController.Fmt(exactMs)}";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Warn($"Exact frame preview failed: {ex.Message}"); }
     }
 
     public void ScrubStep(int direction, bool bySecond)
@@ -449,7 +493,7 @@ public partial class EditViewModel : ObservableObject
     private bool ConfirmDiscard()
     {
         if (!IsDirty || _song is null) return true;
-        var r = MessageBox.Show($"\"{_song.Title}\" has unsaved changes. Discard them?", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var r = Views.DarkMessageBox.Show($"\"{_song.Title}\" has unsaved changes. Discard them?", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         return r == MessageBoxResult.Yes;
     }
 
@@ -465,7 +509,7 @@ public partial class EditViewModel : ObservableObject
         var result = lib.SaveSong(_song);
         if (result.Status == SaveStatus.Conflict)
         {
-            var r = MessageBox.Show($"\"{_song.Title}\" was changed on disk since it was loaded (probably from the other PC).\n\nYes = overwrite with your version\nNo = reload the disk version and lose your changes",
+            var r = Views.DarkMessageBox.Show($"\"{_song.Title}\" was changed on disk since it was loaded (probably from the other PC).\n\nYes = overwrite with your version\nNo = reload the disk version and lose your changes",
                 "Segment Deck", MessageBoxButton.YesNoCancel, MessageBoxImage.Warning);
             if (r == MessageBoxResult.Yes) result = lib.SaveSong(_song, overwrite: true);
             else if (r == MessageBoxResult.No) { var again = lib.ReloadSong(_song.Id); if (again is not null) Load(again, false); return; }
@@ -538,7 +582,7 @@ public partial class EditViewModel : ObservableObject
     private void DeleteSong()
     {
         if (_song is null || _isNew) return;
-        if (MessageBox.Show($"Delete \"{_song.Title}\" from the library? A .bak copy is kept.", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (Views.DarkMessageBox.Show($"Delete \"{_song.Title}\" from the library? A .bak copy is kept.", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _services.Library.DeleteSong(_song.Id);
         _song = null; HasSong = false; IsDirty = false; Segments.Clear(); Frames.Clear(); PreviewImage = null;
         RefreshSongList();
