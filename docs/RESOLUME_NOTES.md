@@ -162,9 +162,9 @@ With `playmodeaway` = **Relative**: connect resets to 0 (plus an offset). Not us
 1. If the song clip's `playmodeaway` is `Continue`: **seek first, then connect** (order H). Nothing else needed.
    The README will tell the team to set the song clips' transport retrigger option to "Continue" in Resolume
    (the Restart / Continue / Relative choice in the clip's transport settings; API name `playmodeaway`) and
-   save the composition. Segment Deck reads the value from the composition, so it can tell which order to use per clip.
+   save the composition. Cuepoint Deck reads the value from the composition, so it can tell which order to use per clip.
 2. Otherwise: **order F** (set `in`, connect, restore `in`) as the automatic fallback. It is flash-free with default
-   clip settings. The only cost is that if Segment Deck died between the two PUTs, the clip would keep a
+   clip settings. The only cost is that if Cuepoint Deck died between the two PUTs, the clip would keep a
    non-zero in point until someone fixed it; restore it as soon as the first position update ≥ target arrives, and
    log both writes.
 3. Order G is the no-side-effects alternative if F ever misbehaves: one 10 ms window where the start frame might be visible.
@@ -217,19 +217,19 @@ Run the probe from each machine and paste the report into `docs/probe-reports/`:
 Build once on a machine with the .NET 8 SDK, or use the published folder:
 
 ```bash
-dotnet build SegmentDeck.sln -c Release
+dotnet build CuepointDeck.sln -c Release
 ```
 
 Console probe (unattended, writes `probe-<timestamp>.txt` in the current folder):
 
 ```bash
-spike/SegmentDeck.Probe/bin/Release/net8.0/win-x64/SegmentDeck.Probe.exe --host 127.0.0.1 --layer 1 --column 1
+spike/CuepointDeck.Probe/bin/Release/net8.0/win-x64/CuepointDeck.Probe.exe --host 127.0.0.1 --layer 1 --column 1
 ```
 
 Add `--open "D:\Media\Songs\Song.mov"` to load a file into an empty slot first (in memory only; do not save the
 composition afterwards unless you want it). `--host 10.131.x.x` from the operator PC gives the remote numbers.
 The probe clears the target layer between connect tests, so run it only when nothing is on output.
 
-Interactive window (for the eyes-on-output checks): `spike/SegmentDeck.Spike/bin/Release/net8.0-windows/win-x64/SegmentDeck.Spike.exe`.
+Interactive window (for the eyes-on-output checks): `spike/CuepointDeck.Spike/bin/Release/net8.0-windows/win-x64/CuepointDeck.Spike.exe`.
 Connect, select the song clip in the grid, then use the A/B/C/G/F buttons while watching the output. Its log
-is in `%AppData%\SegmentDeck\logs\spike-<date>.log`.
+is in `%AppData%\CuepointDeck\logs\spike-<date>.log`.

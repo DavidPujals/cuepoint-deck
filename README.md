@@ -1,14 +1,14 @@
-# Segment Deck
+# Cuepoint Deck
 
-Segment Deck is a Windows app for Nova Church's visuals operator. It fires named sections of a song
+Cuepoint Deck is a Windows app for Nova Church's visuals operator. It fires named sections of a song
 (Verse 1, Chorus, Bridge…) inside a Resolume Arena clip by moving the clip's playhead, so a song can have
 as many segments as it needs instead of Resolume's six cue points. Each segment is a card with a thumbnail,
 a lyric note and a number key.
 
-Resolume stays in charge of playback. If Segment Deck crashes or loses its connection, the clip keeps
+Resolume stays in charge of playback. If Cuepoint Deck crashes or loses its connection, the clip keeps
 playing and the operator falls back to Resolume's own controls. Nothing in the app can stop or pause output.
 
-The build brief is in `docs/segment-deck-brief.md`. What Arena actually does on the wire, with measured
+The build brief is in `docs/cuepoint-deck-brief.md`. What Arena actually does on the wire, with measured
 numbers, is in `docs/RESOLUME_NOTES.md`.
 
 ## Status
@@ -34,18 +34,18 @@ Screenshots from the development PC: [Show mode](docs/screenshots/show-mode.png)
 ### On the Resolume PC
 
 1. In Arena: **Preferences > Webserver**, tick **Enable Webserver & REST API**. Leave the port at 8080.
-   Set the listen address to `0.0.0.0` only if Segment Deck will run on another PC.
+   Set the listen address to `0.0.0.0` only if Cuepoint Deck will run on another PC.
 2. Song clips should be on one layer (the **Song layer** setting, default 1).
 3. Recommended: in each song clip's transport settings set the retrigger option to **Continue**
    (Restart / Continue / Relative; the API calls it `playmodeaway`) and save the composition. With Continue,
-   launching a song at a segment is a clean seek-then-connect. With the default Restart, Segment Deck uses the
+   launching a song at a segment is a clean seek-then-connect. With the default Restart, Cuepoint Deck uses the
    clip's in-point instead, which also works but touches a clip setting for half a second.
 
-### Segment Deck
+### Cuepoint Deck
 
-No installer. Copy `SegmentDeck.exe` anywhere and run it. No admin rights, no .NET install, no login.
+No installer. Copy `CuepointDeck.exe` anywhere and run it. No admin rights, no .NET install, no login.
 
-First start: it connects to `127.0.0.1:8080` and creates `Documents\SegmentDeck Library`.
+First start: it connects to `127.0.0.1:8080` and creates `Documents\CuepointDeck Library`.
 Open **Settings** to change:
 
 | Setting | Notes |
@@ -56,23 +56,23 @@ Open **Settings** to change:
 | Song layer | Breaks ties when a song's file is in more than one clip, and is where songs are launched. |
 | Latency offset | How early a queued jump is sent. Stored per host. Start at 40 ms locally; raise it remotely until queued jumps land on the boundary. |
 | Default trigger | What a plain click or number key does: Queue (default) or Cut. Shift does the other one. |
-| Launch songs from setlist | Off: you start songs in Resolume and Segment Deck follows. On: Enter or a double-click on a setlist song connects it, and firing a segment of a song that isn't live launches it there. |
+| Launch songs from setlist | Off: you start songs in Resolume and Cuepoint Deck follows. On: Enter or a double-click on a setlist song connects it, and firing a segment of a song that isn't live launches it there. |
 | Path mappings | `D:\Media => \\CITY-VISUALS\Media`, one per line. For editing on a PC that sees the media at a different path. |
 | ffmpeg path | Only needed for Edit mode thumbnails and the preview scrubber. Download a Windows build from ffmpeg.org, unzip it, point this at `ffmpeg.exe`. |
 | Card size | 1.0 is about 240 px wide at 100% scaling. |
 | Pin on top | Keeps the window above Resolume when you click away. The pin button in the top bar toggles the same setting. |
 
-Settings live in `%AppData%\SegmentDeck\settings.json`. Logs go to `%AppData%\SegmentDeck\logs\`, one file per
+Settings live in `%AppData%\CuepointDeck\settings.json`. Logs go to `%AppData%\CuepointDeck\logs\`, one file per
 day, kept 14 days. The **Log** button shows the last 400 lines.
 
-### Firewall, when Segment Deck runs on another PC
+### Firewall, when Cuepoint Deck runs on another PC
 
 Resolume's webserver has no authentication. Anyone who can reach port 8080 can control the composition.
 On the Resolume PC add a Windows Firewall rule that allows inbound TCP 8080 **only from the operator PC's IP**,
 and keep both machines on VLAN 131, away from the staff VLAN. In an elevated PowerShell on the Resolume PC:
 
 ```powershell
-New-NetFirewallRule -DisplayName "Resolume webserver (Segment Deck)" -Direction Inbound -Protocol TCP -LocalPort 8080 -RemoteAddress 10.131.0.50 -Action Allow
+New-NetFirewallRule -DisplayName "Resolume webserver (Cuepoint Deck)" -Direction Inbound -Protocol TCP -LocalPort 8080 -RemoteAddress 10.131.0.50 -Action Allow
 ```
 
 Replace the address with the operator PC's IP.
@@ -106,8 +106,10 @@ must be set to the Follow role.
 - After every seek the app checks the playhead landed within 250 ms of the target within 500 ms and warns if not.
   It never retries on its own.
 - Losing the connection clears any queue and greys the cards; the app reconnects every 2 s on its own.
+- Closing the window asks first, so a stray click cannot take the deck down mid-service. Resolume keeps playing
+  regardless; the app never sends anything on exit.
 
-Keys (only while the Segment Deck window has focus; nothing is global because Resolume uses the same keys):
+Keys (only while the Cuepoint Deck window has focus; nothing is global because Resolume uses the same keys):
 
 | Key | Action |
 |---|---|
@@ -172,22 +174,22 @@ Show mode also works without any setlist; it just follows whatever clip is conne
 
 ## Updates
 
-New versions are published as [GitHub releases](https://github.com/DavidPujals/segment-deck/releases). Inside the
+New versions are published as [GitHub releases](https://github.com/DavidPujals/cuepoint-deck/releases). Inside the
 app, **Settings → About & updates → Check for updates** compares the running version against the latest release; if
 there is a newer one it downloads it and swaps the exe in place. Click **Restart now** to finish. Resolume keeps playing
 while the app restarts, and your settings and library are untouched. Do it between services, not during one.
 
 ### Cutting a release (maintainers)
 
-1. Bump `<Version>` in `src/SegmentDeck.App/SegmentDeck.App.csproj` (e.g. `0.3.0`).
-2. Publish, then create the release with the exe under the asset name `SegmentDeck.exe`:
+1. Bump `<Version>` in `src/CuepointDeck.App/CuepointDeck.App.csproj` (e.g. `0.3.0`).
+2. Publish, then create the release with the exe under the asset name `CuepointDeck.exe`:
 
    ```bash
-   dotnet publish src/SegmentDeck.App/SegmentDeck.App.csproj -c Release -o publish/SegmentDeck
+   dotnet publish src/CuepointDeck.App/CuepointDeck.App.csproj -c Release -o publish/CuepointDeck
    ```
 
    ```bash
-   gh release create v0.3.0 publish/SegmentDeck/SegmentDeck.exe --title "v0.3.0" --notes "What changed"
+   gh release create v0.3.0 publish/CuepointDeck/CuepointDeck.exe --title "v0.3.0" --notes "What changed"
    ```
 
    The tag (`v0.3.0`) must match the csproj version, and each release should carry exactly one `.exe` asset.
@@ -209,27 +211,27 @@ composition shows as unavailable. A broken JSON file is skipped with a warning a
 ## Building
 
 ```bash
-dotnet build SegmentDeck.sln -c Release
+dotnet build CuepointDeck.sln -c Release
 ```
 
 ```bash
-dotnet test tests/SegmentDeck.Core.Tests
+dotnet test tests/CuepointDeck.Core.Tests
 ```
 
-Two tests are opt-in: `SEGMENTDECK_ARENA_TESTS=1` kills and relaunches a local Arena to prove the reconnect
-(never on the show PC during a service); `SEGMENTDECK_FFMPEG` + `SEGMENTDECK_TEST_VIDEO` exercise ffmpeg.
+Two tests are opt-in: `CUEPOINTDECK_ARENA_TESTS=1` kills and relaunches a local Arena to prove the reconnect
+(never on the show PC during a service); `CUEPOINTDECK_FFMPEG` + `CUEPOINTDECK_TEST_VIDEO` exercise ffmpeg.
 
-Self-contained single-file publish (copy `SegmentDeck.exe` to any Windows 10/11 x64 PC):
+Self-contained single-file publish (copy `CuepointDeck.exe` to any Windows 10/11 x64 PC):
 
 ```bash
-dotnet publish src/SegmentDeck.App/SegmentDeck.App.csproj -c Release -o publish/SegmentDeck
+dotnet publish src/CuepointDeck.App/CuepointDeck.App.csproj -c Release -o publish/CuepointDeck
 ```
 
 Layout:
 
 ```
-src/SegmentDeck.Core/     settings, logging, Resolume connection, library, matching, trigger engine (ISegmentController)
-src/SegmentDeck.App/      WPF: Show mode, Edit mode, setlists, settings, log
+src/CuepointDeck.Core/     settings, logging, Resolume connection, library, matching, trigger engine (ISegmentController)
+src/CuepointDeck.App/      WPF: Show mode, Edit mode, setlists, settings, log
 tests/                    xunit, with recorded Arena messages as fixtures
 spike/                    Stage 1 test window and console probe
 samples/library/          a tiny library to try the app with
