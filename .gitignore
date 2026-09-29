@@ -4,3 +4,6 @@ publish/
 *.user
 .vs/
 *.bak
+
+# generated Edit-mode caches (filmstrip frames, exact frames, preview proxy)
+*.filmstrip/
