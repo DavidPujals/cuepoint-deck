@@ -18,7 +18,7 @@
     <AssemblyTitle>Cuepoint Deck</AssemblyTitle>
     <Product>Cuepoint Deck</Product>
     <!-- Bump this for every release; the in-app updater compares it to the latest GitHub release tag (vX.Y.Z). -->
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <!-- Self-contained single-file exe, no installer, no admin. WPF cannot be trimmed. -->
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>

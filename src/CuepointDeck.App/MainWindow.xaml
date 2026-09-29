@@ -5,6 +5,7 @@
         xmlns:vm="clr-namespace:CuepointDeck.App.ViewModels"
         xmlns:views="clr-namespace:CuepointDeck.App.Views"
         Title="Cuepoint Deck"
+        Icon="/Assets/cuepointdeck.ico"
         Background="{StaticResource BgBrush}"
         MinWidth="640" MinHeight="400"
         Width="1400" Height="880"
