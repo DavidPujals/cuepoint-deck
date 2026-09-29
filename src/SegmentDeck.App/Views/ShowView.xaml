@@ -11,6 +11,7 @@
         <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
         <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:ScaleConverter x:Key="Scale"/>
+        <app:ImageAspectConverter x:Key="Aspect"/>
 
         <!-- one segment card -->
         <DataTemplate x:Key="CardTemplate" DataType="{x:Type vm:SegmentCardViewModel}">
@@ -33,13 +34,15 @@
                     </Grid.RowDefinitions>
 
                     <!-- thumbnail or placeholder -->
-                    <Grid Grid.Row="0" Height="{Binding DataContext.CardScale, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Scale}, ConverterParameter=135}" ClipToBounds="True">
+                    <!-- the box keeps the clip's own width:height ratio, so the whole frame shows with no crop or bars -->
+                    <ctl:AspectBox Grid.Row="0" Ratio="{Binding Thumb, Converter={StaticResource Aspect}}" ClipToBounds="True">
+                    <Grid>
                         <Border Background="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.55}" CornerRadius="6,6,0,0">
                             <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="10" Opacity="0.9"/>
                         </Border>
                         <Border CornerRadius="6,6,0,0" Visibility="{Binding HasThumb, Converter={StaticResource Vis}}">
                             <Border.Background>
-                                <ImageBrush ImageSource="{Binding Thumb}" Stretch="UniformToFill"/>
+                                <ImageBrush ImageSource="{Binding Thumb}" Stretch="Uniform"/>
                             </Border.Background>
                         </Border>
                         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Background="#CC000000" CornerRadius="5" Padding="7,1" Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
@@ -55,6 +58,7 @@
                             <TextBlock Text="{Binding StartText}" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource MutedBrush}"/>
                         </Border>
                     </Grid>
+                    </ctl:AspectBox>
 
                     <DockPanel Grid.Row="1" Margin="0,6,0,0">
                         <Rectangle DockPanel.Dock="Left" Width="6" Margin="8,0,0,0" RadiusX="2" RadiusY="2" Fill="{Binding ColorHex, Converter={StaticResource Hex}}"/>
