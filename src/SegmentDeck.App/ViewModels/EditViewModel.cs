@@ -101,7 +101,7 @@ public sealed class FilmstripFrame
     public required string Path { get; init; }
     public required double Fps { get; init; }
     public string TimeText => Timecode.Format(TimeMs, Fps);
-    public BitmapImage? Image => ThumbCache.Get(Path, 192);
+    public BitmapImage? Image => ThumbCache.Get(Path, 320);
 }
 
 public sealed class CompositionClipItem
@@ -172,6 +172,10 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private double _scrubMs;
     [ObservableProperty] private string _scrubText = "00:00:00:00";
     [ObservableProperty] private BitmapImage? _previewImage;
+    /// <summary>Width:height of the clip, so the preview box is the clip's own shape. Learned from the first frame seen
+    /// (filmstrip, exact frame or the proxy once it opens) and kept until another song shows a different shape.</summary>
+    [ObservableProperty] private double _previewAspect = Controls.AspectBox.DefaultRatio;
+    partial void OnPreviewImageChanged(BitmapImage? value) { if (value is { PixelHeight: > 0 }) PreviewAspect = value.PixelWidth / (double)value.PixelHeight; }
     [ObservableProperty] private string _scrubStatus = "";
     [ObservableProperty] private bool _scrubberAvailable;
     [ObservableProperty] private double _frameStepMs = 40;

@@ -140,6 +140,8 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 - **Preview player**: ffmpeg builds a small preview video of the song once (cached in the library next to the
   filmstrip). Space plays and pauses with sound, drag the slider or click a filmstrip frame to jump, ←/→ steps one
   frame and shows it at once, Shift+←/→ one second. Until the preview video exists the same controls use stills.
+- Thumbnails, the preview box and the filmstrip always keep the clip's own shape: a 16:9 song shows 16:9, a
+  2688x512 stage canvas shows as a full-width strip. Nothing is cropped or letterboxed.
 - Times everywhere read `hh:mm:ss:ff`, the way Resolume shows them. Time fields also accept `mm:ss:ff`, `mm:ss.fff`
   or plain seconds.
 - **Save** writes the song and then renders a 480 px thumbnail per segment at its exact start. If ffmpeg or the

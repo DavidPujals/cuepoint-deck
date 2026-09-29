@@ -76,6 +76,8 @@ public partial class EditView : UserControl
         _mediaReady = true;
         Log.Info($"Preview video opened: {(Player.NaturalDuration.HasTimeSpan ? Player.NaturalDuration.TimeSpan.TotalSeconds.ToString("0.0") + " s" : "?")}, {Player.NaturalVideoWidth}x{Player.NaturalVideoHeight}");
         if (_vm is null) return;
+        if (Player.NaturalVideoWidth > 0 && Player.NaturalVideoHeight > 0)
+            _vm.PreviewAspect = Player.NaturalVideoWidth / (double)Player.NaturalVideoHeight;
         Player.Position = TimeSpan.FromMilliseconds(_vm.ScrubMs);
         if (_vm.IsPlaying) { Player.Play(); _playTimer.Start(); } else Player.Pause();
     }

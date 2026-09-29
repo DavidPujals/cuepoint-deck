@@ -61,7 +61,7 @@ public sealed class FfmpegService
         Directory.CreateDirectory(outputDir);
         var fps = (1.0 / intervalSeconds).ToString("0.####", CultureInfo.InvariantCulture);
         var pattern = Path.Combine(outputDir, "%05d.jpg");
-        var args = $"-hide_banner -loglevel error -y -i \"{sourceFile}\" -vf \"fps={fps},scale=192:-2\" -q:v 6 \"{pattern}\"";
+        var args = $"-hide_banner -loglevel error -y -i \"{sourceFile}\" -vf \"fps={fps},scale=320:-2\" -q:v 6 \"{pattern}\"";
         var result = await JobAsync(args, Path.Combine(outputDir, "00001.jpg"), ct, TimeSpan.FromMinutes(10));
         if (result.Ok) File.WriteAllText(Path.Combine(outputDir, "done.txt"), DateTime.UtcNow.ToString("o"));
         return result;

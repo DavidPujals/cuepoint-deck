@@ -63,3 +63,12 @@ public sealed class ScaleConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>Width:height ratio of a bitmap, for <see cref="Controls.AspectBox"/>. Anything that is not a bitmap
+/// (no thumbnail yet) gives 16:9 so placeholders keep a sensible shape.</summary>
+public sealed class ImageAspectConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is System.Windows.Media.Imaging.BitmapSource { PixelHeight: > 0 } b ? b.PixelWidth / (double)b.PixelHeight : Controls.AspectBox.DefaultRatio;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
