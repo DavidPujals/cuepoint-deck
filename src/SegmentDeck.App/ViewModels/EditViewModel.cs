@@ -152,12 +152,18 @@ public partial class EditViewModel : ObservableObject
     /// <summary>Selecting a segment, or moving its start, shows that exact frame in the scrubber.</summary>
     partial void OnSelectedSegmentChanged(SegmentEditItem? value)
     {
-        if (value is not null) ScrubMs = value.StartMs;
+        if (value is not null) MoveScrubberTo(value.StartMs);
     }
 
     public void OnSegmentStartChanged(SegmentEditItem item)
     {
-        if (ReferenceEquals(item, SelectedSegment)) ScrubMs = item.StartMs;
+        if (ReferenceEquals(item, SelectedSegment)) MoveScrubberTo(item.StartMs);
+    }
+
+    private void MoveScrubberTo(double ms)
+    {
+        if (Math.Abs(ScrubMs - ms) < 0.5) _ = RequestExactFrameAsync(ms);   // no change event would fire
+        else ScrubMs = ms;
     }
 
     public EditViewModel(AppServices services, ShellViewModel shell, Dispatcher dispatcher)
@@ -404,7 +410,9 @@ public partial class EditViewModel : ObservableObject
         for (int i = 0; i < files.Count; i++) Frames.Add(new FilmstripFrame { Index = i, TimeMs = i * 2000.0, Path = files[i] });
         ScrubberAvailable = Frames.Count > 0;
         ScrubStatus = $"{Frames.Count} preview frames · drag the playhead, ←/→ one frame, Shift+←/→ one second, M marks";
-        UpdatePreview();
+        // Land on the selected segment's start now that frames and the cache folder exist.
+        if (SelectedSegment is not null && Math.Abs(ScrubMs - SelectedSegment.StartMs) > 0.5) ScrubMs = SelectedSegment.StartMs;
+        else { UpdatePreview(); _ = RequestExactFrameAsync(ScrubMs); }
     }
 
     private string FilmstripDir(Song song, string file)
