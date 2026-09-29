@@ -1,6 +1,7 @@
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SegmentDeck.Core;
 using SegmentDeck.Core.Library;
 using SegmentDeck.Core.Playback;
 
@@ -18,7 +19,8 @@ public partial class SegmentCardViewModel : ObservableObject
     public string Name => Segment.Name;
     public string Lyric => Segment.Lyric;
     public string ColorHex => Segment.Color;
-    public string StartText => SegmentController.Fmt(Segment.StartMs);
+    public string StartText => Timecode.Format(Segment.StartMs, Song.Fps);
+    public string RangeText => Segment.EndMs is long e ? $"{StartText} → {Timecode.Format(e, Song.Fps)}" : StartText;
     public BitmapImage? Thumb { get; }
     public bool HasThumb => Thumb is not null;
 

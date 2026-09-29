@@ -87,7 +87,8 @@ must be set to the Follow role.
 ### Show mode
 
 - The top bar shows the connection light (green connected, amber reconnecting, red disconnected), the host,
-  warnings, and the role badge.
+  warnings, the role badge, and one button that switches between Show and Edit mode. Under it, the setlist bar:
+  the active setlist, Manage…, the songs in order and Launch.
 - When a song clip is connected in Resolume, its song appears automatically with the whole-clip progress bar
   (segment boundaries as ticks) and the segment cards. The live segment is lit in its colour; the one that
   would play next has a small "next" marker.
@@ -130,11 +131,17 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 - **Read lyrics from video**: fills empty lyric notes with the on-screen text a couple of seconds after each segment
   starts, using the OCR engine built into Windows 10/11 (offline, no service). Stylised fonts misread now and then,
   so treat the notes as drafts and fix the odd word.
-- **Scrubber**: a filmstrip of one frame every 2 s, built once by ffmpeg at low priority and cached in the
-  library. Drag the playhead, ←/→ steps a frame, Shift+←/→ a second, M marks at the scrubber when the clip
-  isn't live (Shift+M always).
-- Each segment: name (quick picks), start time (`mm:ss.fff`, nudge ±1 frame and ±100 ms), colour, lyric note.
-  Segments always sort by start time.
+- **Filmstrip**: one frame every 2 s under the player, built once by ffmpeg and cached. Click a frame to jump there.
+  M marks at the preview position when the clip isn't live in Resolume (Shift+M always).
+- Each segment: name (quick picks or anything you type), start time (`hh:mm:ss:ff` at the clip's frame rate, nudge
+  ±1 frame and ±100 ms), an optional **end** time, colour, lyric note. Segments always sort by start time. A segment
+  without an end runs until the next one starts; with an end, the stretch up to the next segment is a gap that belongs
+  to nothing: no card is lit there, a queued jump fires at the end, and the progress bar shows the gap hatched.
+- **Preview player**: ffmpeg builds a small preview video of the song once (cached in the library next to the
+  filmstrip). Space plays and pauses with sound, drag the slider or click a filmstrip frame to jump, ←/→ steps one
+  frame and shows it at once, Shift+←/→ one second. Until the preview video exists the same controls use stills.
+- Times everywhere read `hh:mm:ss:ff`, the way Resolume shows them. Time fields also accept `mm:ss:ff`, `mm:ss.fff`
+  or plain seconds.
 - **Save** writes the song and then renders a 480 px thumbnail per segment at its exact start. If ffmpeg or the
   media file isn't reachable on this PC, the song still saves and the cards show a coloured placeholder.
 - If the song file changed on disk since it was loaded (edited from the other PC), Save asks whether to

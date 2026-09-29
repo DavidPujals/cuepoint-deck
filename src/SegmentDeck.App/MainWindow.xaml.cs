@@ -9,6 +9,7 @@ namespace SegmentDeck.App;
 public partial class MainWindow : Window
 {
     private readonly ShellViewModel _vm;
+    private DateTime _lastSetlistDown;
 
     public MainWindow()
     {
@@ -49,6 +50,17 @@ public partial class MainWindow : Window
             d = VisualTreeHelper.GetParent(d);
         }
         return null;
+    }
+
+    private void SetlistSong_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // Click selects; a quick second click launches (when launching is enabled).
+        if (sender is not FrameworkElement { DataContext: SetlistSongItem item }) return;
+        _vm.Show.SelectSetlistSong(item);
+        var now = DateTime.Now;
+        if ((now - _lastSetlistDown).TotalMilliseconds < 400 && _vm.Show.CanLaunch) _vm.Show.LaunchSelectedCommand.Execute(null);
+        _lastSetlistDown = now;
+        e.Handled = true;
     }
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)

@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SegmentDeck.Core;
 using SegmentDeck.Core.Library;
 using SegmentDeck.Core.Logging;
 using SegmentDeck.Core.Playback;
@@ -52,6 +53,7 @@ public partial class ShowViewModel : ObservableObject
     [ObservableProperty] private string _remainingText = "--:--";
     [ObservableProperty] private IReadOnlyList<double> _ticks = Array.Empty<double>();
     [ObservableProperty] private IReadOnlyList<Brush> _tickColors = Array.Empty<Brush>();
+    [ObservableProperty] private IReadOnlyList<(double from, double to)> _gaps = Array.Empty<(double, double)>();
     [ObservableProperty] private Brush _progressFill = Brushes.DodgerBlue;
 
     // ---- cards
@@ -166,13 +168,14 @@ public partial class ShowViewModel : ObservableObject
             SongSubtitle = clip is { IsConnected: true } ? $"{clip.Location} is playing but is not in the library" : "Connect a song clip in Resolume, or pick one from the setlist";
             Ticks = Array.Empty<double>();
             TickColors = Array.Empty<Brush>();
+            Gaps = Array.Empty<(double, double)>();
             ClipProgress = 0;
             return;
         }
 
         SongTitle = song.Title;
         var match = _services.Matches.For(song.Id);
-        SongSubtitle = match?.Clip is { } c ? $"{c.Location}  ·  {song.Segments.Count} segments  ·  {SegmentController.Fmt(song.DurationMs)}" + (match.Ambiguous ? $"  ·  ⚠ {match.Warning}" : "")
+        SongSubtitle = match?.Clip is { } c ? $"{c.Location}  ·  {song.Segments.Count} segments  ·  {Timecode.Format(song.DurationMs, song.Fps)}" + (match.Ambiguous ? $"  ·  ⚠ {match.Warning}" : "")
                                               : "Not in the composition";
         var lib = _services.Library;
         for (int i = 0; i < song.Segments.Count; i++)
@@ -186,6 +189,15 @@ public partial class ShowViewModel : ObservableObject
         Ticks = song.Segments.Select(s => Math.Clamp(s.StartMs / dur, 0, 1)).ToList();
         var conv = new HexToBrushConverter();
         TickColors = song.Segments.Select(s => (Brush)conv.Convert(s.Color, typeof(Brush), null!, null!)).ToList();
+        var gaps = new List<(double, double)>();
+        for (int i = 0; i < song.Segments.Count; i++)
+        {
+            if (!song.HasGapAfter(i)) continue;
+            var from = song.SegmentEndMs(i) / dur;
+            var to = (i + 1 < song.Segments.Count ? song.Segments[i + 1].StartMs : song.DurationMs) / dur;
+            gaps.Add((Math.Clamp(from, 0, 1), Math.Clamp(to, 0, 1)));
+        }
+        Gaps = gaps;
     }
 
     private void RefreshQueue()
@@ -212,11 +224,11 @@ public partial class ShowViewModel : ObservableObject
         }
         var dur = Math.Max(1, (double)song.DurationMs);
         ClipProgress = Math.Clamp(pos / dur, 0, 1);
-        ElapsedText = FmtShort(pos);
-        RemainingText = "-" + FmtShort(Math.Max(0, dur - pos));
+        ElapsedText = Timecode.FormatShort(pos, song.Fps);
+        RemainingText = "-" + Timecode.FormatShort(Math.Max(0, dur - pos), song.Fps);
 
         var live = song.SegmentIndexAt(pos);
-        var next = live + 1 < song.Segments.Count ? live + 1 : -1;
+        var next = live >= 0 ? (live + 1 < song.Segments.Count ? live + 1 : -1) : song.NextSegmentIndexAfter(pos);
         if (live != _liveIndex || next != _nextIndex)
         {
             _liveIndex = live; _nextIndex = next;
@@ -235,7 +247,11 @@ public partial class ShowViewModel : ObservableObject
                 var end = song.SegmentEndMs(live);
                 card.Progress = end > start ? Math.Clamp((pos - start) / (end - start), 0, 1) : 0;
             }
-            else if (card.Progress != (card.Index < live ? 1 : 0)) card.Progress = card.Index < live ? 1 : 0;
+            else
+            {
+                var done = card.Index < live || (live < 0 && song.SegmentEndMs(card.Index) <= pos);
+                if (card.Progress != (done ? 1 : 0)) card.Progress = done ? 1 : 0;
+            }
 
             if (card.IsQueued)
             {
@@ -423,12 +439,6 @@ public partial class ShowViewModel : ObservableObject
     {
         var idx = SetlistSongs.IndexOf(item);
         if (idx >= 0) SetSelected(idx);
-    }
-
-    private static string FmtShort(double ms)
-    {
-        var t = TimeSpan.FromMilliseconds(Math.Max(0, ms));
-        return $"{(int)t.TotalMinutes}:{t.Seconds:00}";
     }
 
     public void Stop() => _timer.Stop();

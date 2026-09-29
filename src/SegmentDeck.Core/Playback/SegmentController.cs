@@ -130,7 +130,9 @@ public sealed class SegmentController : ISegmentController, IDisposable
         var index = song.Segments.IndexOf(segment);
         var est = _estimator.EstimateMs();
         var currentIndex = est is double e ? song.SegmentIndexAt(e) : -1;
-        var natural = index == currentIndex + 1;
+        // "Natural next" only when the current segment runs straight into the queued one (no gap in between).
+        var natural = currentIndex >= 0 ? index == currentIndex + 1 && !song.HasGapAfter(currentIndex)
+                                        : est is double e2 && index == song.NextSegmentIndexAfter(e2);
         var q = new QueuedSegment { Song = song, Segment = segment, SegmentIndex = index, IsNatural = natural };
         lock (_gate) _queued = q;
         Log.Info($"QUEUE \"{song.Title}\" -> {segment.Name} @ {Fmt(segment.StartMs)} (current segment {currentIndex + 1}, {(natural ? "natural next, nothing will be sent" : "will seek at the boundary")}, offset {_settings().LatencyOffsetMs} ms)");
@@ -379,8 +381,9 @@ public sealed class SegmentController : ISegmentController, IDisposable
             return 0;
         }
 
-        var boundary = currentIndex < 0 ? song.Segments[0].StartMs : song.SegmentEndMs(currentIndex);
-        var natural = q.SegmentIndex == currentIndex + 1;
+        var boundary = song.BoundaryAfter(pos);
+        var natural = currentIndex >= 0 ? q.SegmentIndex == currentIndex + 1 && !song.HasGapAfter(currentIndex)
+                                        : q.SegmentIndex == song.NextSegmentIndexAfter(pos);
         var fireAt = natural ? boundary : boundary - _settings().LatencyOffsetMs;
         var speed = Math.Max(0.05, _estimator.Speed);
         var remaining = (fireAt - pos) / speed;
@@ -418,8 +421,7 @@ public sealed class SegmentController : ISegmentController, IDisposable
         var q = Queued;
         if (q is null || _estimator.EstimateMs() is not double pos) return null;
         var song = q.Song;
-        var currentIndex = song.SegmentIndexAt(pos);
-        var boundary = currentIndex < 0 ? song.Segments[0].StartMs : song.SegmentEndMs(currentIndex);
+        var boundary = song.BoundaryAfter(pos);
         var fireAt = q.IsNatural ? boundary : boundary - _settings().LatencyOffsetMs;
         return Math.Max(0, (fireAt - pos) / Math.Max(0.05, _estimator.Speed));
     }
@@ -439,11 +441,7 @@ public sealed class SegmentController : ISegmentController, IDisposable
         try { a(); } catch (Exception ex) { Log.Error("SegmentController event handler", ex); }
     }
 
-    public static string Fmt(double ms)
-    {
-        var t = TimeSpan.FromMilliseconds(Math.Max(0, ms));
-        return $"{(int)t.TotalMinutes:00}:{t.Seconds:00}.{t.Milliseconds:000}";
-    }
+    public static string Fmt(double ms) => Timecode.Format(ms);
 
     public void Dispose()
     {

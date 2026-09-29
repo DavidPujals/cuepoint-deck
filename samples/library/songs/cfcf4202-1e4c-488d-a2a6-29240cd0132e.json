@@ -12,7 +12,7 @@
   "segments": [
     {
       "id": "df45042d6a9c",
-      "name": "Verse 1",
+      "name": "Intro",
       "startMs": 0,
       "color": "#4A90D9",
       "lyric": "",
@@ -21,12 +21,12 @@
     },
     {
       "id": "f5cd41f7519e",
-      "name": "Verse 2",
-      "startMs": 35248,
+      "name": "Verse 1",
+      "startMs": 31515,
       "color": "#4A90D9",
       "lyric": "",
       "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/f5cd41f7519e.jpg",
-      "thumbAtMs": 35248
+      "thumbAtMs": 31515
     },
     {
       "id": "2b972cb7c2a6",
@@ -119,5 +119,5 @@
       "thumbAtMs": 369337
     }
   ],
-  "updatedAt": "2026-09-29T04:25:17.0022969+00:00"
+  "updatedAt": "2026-09-29T04:36:41.5843508+00:00"
 }

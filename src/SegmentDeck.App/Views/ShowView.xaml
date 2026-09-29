@@ -17,7 +17,7 @@
             <Border x:Name="Card" Margin="5" CornerRadius="9" BorderThickness="3" BorderBrush="{StaticResource LineBrush}"
                     Background="{StaticResource PanelBrush}" Cursor="Hand"
                     Width="{Binding DataContext.CardScale, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Scale}, ConverterParameter=240}"
-                    MouseLeftButtonUp="Card_MouseLeftButtonUp" ToolTip="{Binding StartText}">
+                    MouseLeftButtonUp="Card_MouseLeftButtonUp" ToolTip="{Binding RangeText}">
                 <Border.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Cut (jump now)" Command="{Binding CutCommand}"/>
@@ -42,28 +42,25 @@
                                 <ImageBrush ImageSource="{Binding Thumb}" Stretch="UniformToFill"/>
                             </Border.Background>
                         </Border>
-                        <!-- number badge -->
                         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Background="#CC000000" CornerRadius="5" Padding="7,1" Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
                             <TextBlock Text="{Binding NumberLabel}" FontSize="15" FontWeight="Bold" Foreground="White"/>
                         </Border>
-                        <!-- queued -->
                         <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Background="#DD000000" CornerRadius="5" Padding="7,2" Visibility="{Binding IsQueued, Converter={StaticResource Vis}}">
                             <TextBlock Text="{Binding QueueText}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
                         </Border>
-                        <!-- next marker -->
                         <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1" Visibility="{Binding IsNext, Converter={StaticResource Vis}}">
                             <TextBlock Text="next" FontSize="11" Foreground="{StaticResource MutedBrush}"/>
                         </Border>
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1">
+                            <TextBlock Text="{Binding StartText}" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource MutedBrush}"/>
+                        </Border>
                     </Grid>
 
-                    <!-- colour stripe + name -->
                     <DockPanel Grid.Row="1" Margin="0,6,0,0">
                         <Rectangle DockPanel.Dock="Left" Width="6" Margin="8,0,0,0" RadiusX="2" RadiusY="2" Fill="{Binding ColorHex, Converter={StaticResource Hex}}"/>
                         <TextBlock Text="{Binding Name}" FontSize="19" FontWeight="SemiBold" Margin="8,0,8,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                     <TextBlock Grid.Row="2" Text="{Binding Lyric}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="22,2,8,6" TextTrimming="CharacterEllipsis" MaxHeight="36" TextWrapping="Wrap"/>
-
-                    <!-- segment progress -->
                     <ProgressBar Grid.Row="3" Height="5" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" Margin="8,0,8,7"
                                  Background="#11151A" BorderThickness="0" Foreground="{Binding ColorHex, Converter={StaticResource Hex}}"/>
                 </Grid>
@@ -96,37 +93,12 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-
-        <DataTemplate x:Key="SetlistSongTemplate" DataType="{x:Type vm:SetlistSongItem}">
-            <Border x:Name="Chip" Margin="0,0,6,0" Padding="12,6" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
-                    Cursor="Hand" MouseLeftButtonUp="SetlistSong_MouseLeftButtonUp" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown" ToolTip="{Binding Detail}">
-                <TextBlock Text="{Binding Title}" FontSize="14" x:Name="ChipText"/>
-            </Border>
-            <DataTemplate.Triggers>
-                <DataTrigger Binding="{Binding IsUnknown}" Value="True">
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
-                    <Setter TargetName="ChipText" Property="FontStyle" Value="Italic"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsAvailable}" Value="False">
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
-                    <Setter TargetName="ChipText" Property="TextDecorations" Value="Strikethrough"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource SelectBrush}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                    <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                    <Setter TargetName="ChipText" Property="FontWeight" Value="Bold"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- ===== current song ===== -->
@@ -150,7 +122,7 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding ElapsedText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <ctl:SegmentProgressBar Grid.Column="1" Height="14" VerticalAlignment="Center" Progress="{Binding ClipProgress}" Ticks="{Binding Ticks}" TickColors="{Binding TickColors}" Fill="{Binding ProgressFill}"/>
+                        <ctl:SegmentProgressBar Grid.Column="1" Height="14" VerticalAlignment="Center" Progress="{Binding ClipProgress}" Ticks="{Binding Ticks}" TickColors="{Binding TickColors}" Gaps="{Binding Gaps}" Fill="{Binding ProgressFill}"/>
                         <TextBlock Grid.Column="2" Text="{Binding RemainingText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
                     </Grid>
                 </StackPanel>
@@ -176,28 +148,5 @@
                            Visibility="{Binding HasSong, Converter={StaticResource VisInv}}"/>
             </Grid>
         </ScrollViewer>
-
-        <!-- ===== setlist strip ===== -->
-        <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0,8,0,0" Padding="10,6">
-            <DockPanel>
-                <Button DockPanel.Dock="Left" Content="Setlist ▾" MinHeight="30" FontSize="12" Command="{Binding ToggleSetlistCommand}" Margin="0,0,8,0"/>
-                <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="220" MinHeight="30"
-                          Visibility="{Binding IsSetlistVisible, Converter={StaticResource Vis}}"/>
-                <Button DockPanel.Dock="Left" Content="Manage…" MinHeight="30" FontSize="12" Margin="6,0,10,0" Command="{Binding ManageSetlistsCommand}"
-                        Visibility="{Binding IsSetlistVisible, Converter={StaticResource Vis}}"/>
-                <Button DockPanel.Dock="Right" Content="▶ Launch (Enter)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12"
-                        Command="{Binding LaunchSelectedCommand}" IsEnabled="{Binding CanLaunch}" Visibility="{Binding IsSetlistVisible, Converter={StaticResource Vis}}"
-                        ToolTip="Connects the selected song's clip. Only when 'Launch songs from setlist' is on in Settings."/>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Visibility="{Binding IsSetlistVisible, Converter={StaticResource Vis}}" Focusable="False">
-                    <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
     </Grid>
 </UserControl>
