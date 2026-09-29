@@ -16,10 +16,12 @@
     <ApplicationIcon>Assets/segmentdeck.ico</ApplicationIcon>
     <AssemblyTitle>Segment Deck</AssemblyTitle>
     <Product>Segment Deck</Product>
+    <!-- Bump this for every release; the in-app updater compares it to the latest GitHub release tag (vX.Y.Z). -->
     <Version>0.2.0</Version>
-    <!-- Self-contained single folder, no installer, no admin. WPF cannot be trimmed. -->
+    <!-- Self-contained single-file exe, no installer, no admin. WPF cannot be trimmed. -->
     <SelfContained>true</SelfContained>
-    <PublishSingleFile>false</PublishSingleFile>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <PublishTrimmed>false</PublishTrimmed>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
