@@ -17,6 +17,8 @@ public sealed class Segment
     public string Lyric { get; set; } = "";
     /// <summary>Library-relative path, e.g. <c>thumbs/&lt;songId&gt;/&lt;segmentId&gt;.jpg</c>.</summary>
     public string? Thumb { get; set; }
+    /// <summary>Start time the thumbnail was rendered at; regenerate when it differs from StartMs.</summary>
+    public long? ThumbAtMs { get; set; }
 }
 
 public sealed class Song
