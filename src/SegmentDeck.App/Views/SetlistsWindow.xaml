@@ -23,6 +23,8 @@
         <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="SETLISTS"/>
+                <Button DockPanel.Dock="Bottom" Content="Import from Resolume columns" Style="{StaticResource SmallButton}" Margin="0,6,0,0" Command="{Binding ImportFromResolumeCommand}"
+                        ToolTip="One song per column, in column order, from the clips on the song layer"/>
                 <UniformGrid DockPanel.Dock="Bottom" Columns="2" Margin="0,8,0,0">
                     <Button Content="New" Style="{StaticResource SmallButton}" Margin="0,0,3,3" Command="{Binding NewCommand}"/>
                     <Button Content="Rename" Style="{StaticResource SmallButton}" Margin="3,0,0,3" Command="{Binding RenameCommand}"/>

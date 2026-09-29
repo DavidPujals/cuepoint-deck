@@ -99,10 +99,14 @@
 
         <DataTemplate x:Key="SetlistSongTemplate" DataType="{x:Type vm:SetlistSongItem}">
             <Border x:Name="Chip" Margin="0,0,6,0" Padding="12,6" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
-                    Cursor="Hand" MouseLeftButtonUp="SetlistSong_MouseLeftButtonUp" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown">
+                    Cursor="Hand" MouseLeftButtonUp="SetlistSong_MouseLeftButtonUp" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown" ToolTip="{Binding Detail}">
                 <TextBlock Text="{Binding Title}" FontSize="14" x:Name="ChipText"/>
             </Border>
             <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsUnknown}" Value="True">
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
+                    <Setter TargetName="ChipText" Property="FontStyle" Value="Italic"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsAvailable}" Value="False">
                     <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
                     <Setter TargetName="ChipText" Property="TextDecorations" Value="Strikethrough"/>

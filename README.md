@@ -131,9 +131,17 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 
 ### Setlists
 
-**Setlists** (button in the top bar, or Manage… in the strip): create, rename, duplicate, delete; add songs
-from the library, drag or use Up/Down to reorder, remove. **Use in Show mode** makes one active. Show mode
-works without a setlist; it just follows whatever clip is connected.
+Two ways to get a running order:
+
+- **From Resolume columns** (first entry in the strip's dropdown): one entry per column that has a clip on the
+  song layer, in column order, named after the column (or the song when the column is unnamed). It rebuilds itself
+  whenever the composition changes. Entries whose clip isn't in the library yet show in italics; they can still be
+  launched from the top, and the header's **Add to library** button builds the song once the clip is live.
+- **Saved setlists**: **Setlists** in the top bar (or Manage… in the strip): create, rename, duplicate, delete; add
+  songs from the library, drag or use Up/Down to reorder, remove. **Import from Resolume columns** creates one from
+  the current column order. **Use in Show mode** makes it active.
+
+Show mode also works without any setlist; it just follows whatever clip is connected.
 
 ## Updates
 
