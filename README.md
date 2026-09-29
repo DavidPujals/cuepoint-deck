@@ -24,7 +24,7 @@ on the real machines is listed under **What needs testing on the show PC** at th
 | 4. Queue | Done. One-slot queue, countdown, Esc, Shift swap, playhead estimation, per-host latency offset. |
 | 5. Edit mode | Done. New song from composition or file, Mark at playhead, filmstrip scrubber, thumbnails via ffmpeg. |
 | 6. Setlists and song launch | Done. Setlist manager, strip, Left/Right/Enter, flash-free launch order. |
-| 7. Hardening | Local 10-minute soak, readable messages, README, self-contained publish. The 3-hour show-PC soak is still to do. |
+| 7. Hardening | 10-minute soak on the dev PC with the clip playing: CPU about 0.1% of a 16-core machine, working set settled at 184 MB after 4 minutes and stayed flat, handles and threads flat. README, self-contained publish. The 3-hour show-PC soak is still to do. |
 
 Screenshots from the development PC: [Show mode](docs/screenshots/show-mode.png),
 [Show mode with a queued segment](docs/screenshots/show-mode-queued.png), [Edit mode](docs/screenshots/edit-mode.png).
