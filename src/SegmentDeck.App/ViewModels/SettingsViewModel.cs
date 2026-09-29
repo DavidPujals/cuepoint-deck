@@ -25,11 +25,20 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _error = "";
 
     public string LatencyLabel => $"Latency offset for {Host} (ms)";
+    /// <summary>What the app is talking to right now: state, address and Resolume's product line.</summary>
+    public string ConnectionInfo { get; }
 
     public SettingsViewModel(AppServices services)
     {
         _services = services;
         var s = services.Settings;
+        var conn = services.Connection;
+        ConnectionInfo = conn.State switch
+        {
+            Core.Resolume.ConnectionState.Connected => $"Connected to {conn.ProductInfo ?? "Resolume"} at {s.ResolumeHost}:{s.ResolumePort}",
+            Core.Resolume.ConnectionState.Connecting => $"Connecting to {s.ResolumeHost}:{s.ResolumePort}…",
+            _ => $"Not connected to {s.ResolumeHost}:{s.ResolumePort}" + (conn.LastError is null ? "" : $" ({conn.LastError})"),
+        };
         Host = s.ResolumeHost;
         Port = s.ResolumePort.ToString();
         RoleIndex = s.Role == AppRole.Follow ? 1 : 0;

@@ -56,11 +56,11 @@ Open **Settings** to change:
 | Song layer | Breaks ties when a song's file is in more than one clip, and is where songs are launched. |
 | Latency offset | How early a queued jump is sent. Stored per host. Start at 40 ms locally; raise it remotely until queued jumps land on the boundary. |
 | Default trigger | What a plain click or number key does: Queue (default) or Cut. Shift does the other one. |
-| Launch songs from setlist | Off: you start songs in Resolume and Segment Deck follows. On: Enter / the Launch button connects the selected song, and firing a segment of a song that isn't live launches it there. |
+| Launch songs from setlist | Off: you start songs in Resolume and Segment Deck follows. On: Enter or a double-click on a setlist song connects it, and firing a segment of a song that isn't live launches it there. |
 | Path mappings | `D:\Media => \\CITY-VISUALS\Media`, one per line. For editing on a PC that sees the media at a different path. |
 | ffmpeg path | Only needed for Edit mode thumbnails and the preview scrubber. Download a Windows build from ffmpeg.org, unzip it, point this at `ffmpeg.exe`. |
 | Card size | 1.0 is about 240 px wide at 100% scaling. |
-| Always on top | |
+| Pin on top | Keeps the window above Resolume when you click away. The pin button in the top bar toggles the same setting. |
 
 Settings live in `%AppData%\SegmentDeck\settings.json`. Logs go to `%AppData%\SegmentDeck\logs\`, one file per
 day, kept 14 days. The **Log** button shows the last 400 lines.
@@ -86,9 +86,10 @@ must be set to the Follow role.
 
 ### Show mode
 
-- The top bar shows the connection light (green connected, amber reconnecting, red disconnected), the host,
-  warnings, the role badge, and one button that switches between Show and Edit mode. Under it, the setlist bar:
-  the active setlist, Manage…, the songs in order and Launch.
+- One top bar holds everything: the connection light (green connected, amber reconnecting, red disconnected;
+  hover it for the address and Resolume version, which also appear in Settings), the active setlist and its songs
+  in order (Show mode only), warnings, the role badge, the pin that keeps the window above Resolume, the button
+  that switches between Show and Edit mode, and Setlists, Settings and Log.
 - When a song clip is connected in Resolume, its song appears automatically with the whole-clip progress bar
   (segment boundaries as ticks) and the segment cards. The live segment is lit in its colour; the one that
   would play next has a small "next" marker.
@@ -110,7 +111,7 @@ Keys (only while the Segment Deck window has focus; nothing is global because Re
 | Shift + 1–9, 0 | Fire with the other trigger |
 | Esc | Clear the queue |
 | Left / Right | Select previous / next song in the setlist strip |
-| Enter | Launch the selected song (only with "Launch songs from setlist" on) |
+| Enter | Launch the selected setlist song (only with "Launch songs from setlist" on); a double-click on the song does the same |
 | E | Edit mode for the current song |
 
 ### Edit mode
@@ -157,7 +158,7 @@ Two ways to get a running order:
   song layer, in column order, named after the column (or the song when the column is unnamed). It rebuilds itself
   whenever the composition changes. Entries whose clip isn't in the library yet show in italics; they can still be
   launched from the top, and the header's **Add to library** button builds the song once the clip is live.
-- **Saved setlists**: **Setlists** in the top bar (or Manage… in the strip): create, rename, duplicate, delete, drag
+- **Saved setlists**: **Setlists** in the top bar: create, rename, duplicate, delete, drag
   or use Up/Down to reorder, remove. The list of songs to add on the right is **Resolume's columns on the song layer**
   (Resolume holds the whole catalogue, so a service is picked from it column by column). Adding a column whose clip
   already has a song in the library adds that song; adding one that doesn't creates a stub song for it (title from the

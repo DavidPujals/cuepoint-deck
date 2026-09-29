@@ -42,6 +42,18 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private string _modeButtonText = "Edit mode (E)";
 
     partial void OnIsShowModeChanged(bool value) => ModeButtonText = value ? "Edit mode (E)" : "◀ Back to Show (Esc)";
+
+    public string PinText => AlwaysOnTop ? "Pinned on top" : "Pin on top";
+
+    /// <summary>The pin in the top bar: the window's Topmost follows this, and it is saved so it survives a restart.</summary>
+    partial void OnAlwaysOnTopChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PinText));
+        if (_services.Settings.AlwaysOnTop == value) return;
+        var s = _services.Settings.Clone();
+        s.AlwaysOnTop = value;
+        _ = _services.ApplySettingsAsync(s);
+    }
     public ShowViewModel Show { get; }
     public EditViewModel? Edit { get; private set; }
 
@@ -75,7 +87,7 @@ public partial class ShellViewModel : ObservableObject
     {
         var conn = _services.Connection;
         var settings = _services.Settings;
-        HostText = $"{settings.ResolumeHost}:{settings.ResolumePort}" + (conn.ProductInfo is null ? "" : $"  ·  {conn.ProductInfo}");
+        HostText = $"Resolume at {settings.ResolumeHost}:{settings.ResolumePort}" + (conn.ProductInfo is null ? "" : $"  ·  {conn.ProductInfo}");
         IsFollow = settings.Role == AppRole.Follow;
         RoleText = IsFollow ? "FOLLOW" : "CONTROLLER";
         (LightBrush, ConnectionText) = conn.State switch

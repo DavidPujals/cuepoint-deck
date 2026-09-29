@@ -19,9 +19,9 @@
             <views:EditView/>
         </DataTemplate>
         <DataTemplate x:Key="SetlistSongTemplate" DataType="{x:Type vm:SetlistSongItem}">
-            <Border x:Name="Chip" Margin="0,0,6,0" Padding="12,5" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
+            <Border x:Name="Chip" Margin="0,0,6,0" Padding="10,3" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
                     Cursor="Hand" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown" ToolTip="{Binding Detail}">
-                <TextBlock Text="{Binding Title}" FontSize="14" x:Name="ChipText"/>
+                <TextBlock Text="{Binding Title}" FontSize="13" x:Name="ChipText"/>
             </Border>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsUnknown}" Value="True">
@@ -43,47 +43,49 @@
         </DataTemplate>
     </Window.Resources>
     <DockPanel Margin="10">
-        <!-- ===== status bar ===== -->
+        <!-- ===== the one top bar: connection, setlist (Show mode), warnings, role, pin, mode and windows ===== -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Panel}" Padding="10,6">
             <DockPanel>
-                <Ellipse DockPanel.Dock="Left" Width="14" Height="14" Fill="{Binding LightBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding ConnectionText}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding HostText}" Foreground="{StaticResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                <Ellipse DockPanel.Dock="Left" Width="14" Height="14" Fill="{Binding LightBrush}" Margin="0,0,8,0" VerticalAlignment="Center"
+                         ToolTip="{Binding HostText}"/>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding ConnectionText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,14,0"
+                           ToolTip="{Binding HostText}"/>
 
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Border Background="{StaticResource Panel2Brush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5" Padding="9,2" VerticalAlignment="Center" Margin="0,0,12,0"
+                    <Border Background="{StaticResource Panel2Brush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5" Padding="9,2" VerticalAlignment="Center" Margin="0,0,10,0"
                             x:Name="RoleBadge">
                         <TextBlock Text="{Binding RoleText}" FontWeight="Bold" FontSize="12"/>
                     </Border>
+                    <ToggleButton Style="{StaticResource PinButton}" IsChecked="{Binding AlwaysOnTop}" MinHeight="28" FontSize="12" Margin="0,0,10,0"
+                                  ToolTip="Keep Segment Deck above Resolume and other windows when you click away from it">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📌" Margin="0,0,5,0"/>
+                            <TextBlock Text="{Binding PinText}"/>
+                        </StackPanel>
+                    </ToggleButton>
                     <Button Content="{Binding ModeButtonText}" Style="{StaticResource PrimaryButton}" MinHeight="28" MinWidth="150" FontSize="12" Command="{Binding ToggleModeCommand}"/>
                     <Button Content="Setlists" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenSetlistsCommand}"/>
                     <Button Content="Settings" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenSettingsCommand}"/>
                     <Button Content="Log" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenLogCommand}"/>
                 </StackPanel>
 
-                <TextBlock Text="{Binding MessageText}" Foreground="{Binding MessageBrush}" Margin="18,0,12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            </DockPanel>
-        </Border>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding MessageText}" Foreground="{Binding MessageBrush}" Margin="12,0,12,0" MaxWidth="420"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding MessageText}"/>
 
-        <!-- ===== setlist bar (Show mode) ===== -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource Panel}" Padding="10,6" DataContext="{Binding Show}"
-                Visibility="{Binding DataContext.IsShowMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="SETLIST" Style="{StaticResource SectionLabel}" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="230" MinHeight="30"/>
-                <Button DockPanel.Dock="Left" Content="Manage…" MinHeight="30" FontSize="12" Margin="6,0,12,0" Command="{Binding ManageSetlistsCommand}"/>
-                <Button DockPanel.Dock="Right" Content="▶ Launch (Enter)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12" Margin="10,0,0,0"
-                        Command="{Binding LaunchSelectedCommand}" IsEnabled="{Binding CanLaunch}"
-                        ToolTip="Connects the selected song's clip. Only when 'Launch songs from setlist' is on in Settings. ←/→ select."/>
-                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False">
-                    <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </ScrollViewer>
+                <!-- setlist: dropdown and the songs in order; the whole group hides in Edit mode -->
+                <DockPanel DataContext="{Binding Show}" Visibility="{Binding DataContext.IsShowMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
+                    <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="210" MinHeight="28" VerticalAlignment="Center" Margin="0,0,10,0"
+                              ToolTip="Active setlist. Manage them with the Setlists button."/>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" VerticalAlignment="Center">
+                        <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
             </DockPanel>
         </Border>
 
