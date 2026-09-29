@@ -178,6 +178,17 @@ Killing Arena while connected: the socket reports closed within ~200 ms. Retryin
 after a cold start can have an empty name and empty slots, and Arena re-sends the composition when the real one loads.
 Treat every composition message as authoritative and rebuild matches each time; do not assume the first one is final.
 
+## 6c. Resource use (Stage 7, dev PC, 10 minutes, app minimised, clip playing at 100 Hz updates)
+
+| minute | working set MB | private MB | CPU % of machine (16 cores) |
+|---|---|---|---|
+| 1 | 133 | 82 | 0.10 |
+| 4 | 182 | 140 | 0.29 |
+| 10 | 184 | 142 | 0.08 |
+
+Flat from minute 4 on. The early growth is the WPF and GC heaps warming up, not a leak, but the 3-hour run on the show
+PC is the real test.
+
 ## 7. Clip matching data available
 
 Every clip gives `id`, `name.value`, `video.fileinfo.path` (absolute, as Arena sees it) and `video.fileinfo.exists`.
