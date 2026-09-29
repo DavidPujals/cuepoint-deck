@@ -187,6 +187,8 @@
                     <DockPanel Margin="0,6,0,0">
                         <Button DockPanel.Dock="Right" Content="Delete song" Style="{StaticResource DangerButton}" MinHeight="30" FontSize="12" Command="{Binding DeleteSongCommand}"/>
                         <Button DockPanel.Dock="Right" Content="Save (Ctrl+S)" Style="{StaticResource PrimaryButton}" MinWidth="140" Margin="0,0,8,0" Command="{Binding SaveCommand}"/>
+                        <Button DockPanel.Dock="Right" Content="Render thumbnails" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,8,0" Command="{Binding RenderThumbnailsCommand}"
+                                ToolTip="Renders the first frame of every segment that has no thumbnail or whose start time changed"/>
                         <TextBlock Text="{Binding SaveStatusText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                 </StackPanel>

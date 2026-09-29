@@ -118,8 +118,9 @@ public partial class ShowViewModel : ObservableObject
         var clip = conn.WatchedClip;
         var song = _services.CurrentSong;
 
-        if (song is null || song.Id != _songIdShown) BuildSong(song, clip);
-        else if (clip is not null && !ReferenceEquals(_song, song)) { _song = song; }
+        // Rebuild when the song changes, and also when the library handed us a fresh copy of the same song
+        // (a rescan after an edit, or thumbnails rendered), so the cards pick up new thumbnails and notes.
+        if (song is null || song.Id != _songIdShown || !ReferenceEquals(_song, song)) BuildSong(song, clip);
 
         IsUnknownClip = song is null && clip is not null && clip.IsConnected;
         UnknownClipName = clip?.Name ?? "";
