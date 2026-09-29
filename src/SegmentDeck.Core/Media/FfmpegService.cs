@@ -41,14 +41,15 @@ public sealed class FfmpegService
     }
 
     /// <summary>One JPEG frame at <paramref name="ms"/>, 480 px wide, quality ~85.</summary>
-    public async Task<FfmpegResult> ThumbnailAsync(string sourceFile, double ms, string outputJpeg, CancellationToken ct = default)
+    public async Task<FfmpegResult> ThumbnailAsync(string sourceFile, double ms, string outputJpeg, CancellationToken ct = default, int width = 480, string? extraFilter = null)
     {
         if (!IsAvailable) return new FfmpegResult(false, "ffmpeg is not available");
         if (!File.Exists(sourceFile)) return new FfmpegResult(false, $"Source file not found: {sourceFile}");
         Directory.CreateDirectory(Path.GetDirectoryName(outputJpeg)!);
         var seconds = (ms / 1000.0).ToString("0.000", CultureInfo.InvariantCulture);
+        var filter = $"scale={width}:-2" + (string.IsNullOrEmpty(extraFilter) ? "" : "," + extraFilter);
         // -ss before -i seeks by keyframe then decodes forward to the exact time (accurate_seek is the default).
-        var args = $"-hide_banner -loglevel error -y -ss {seconds} -i \"{sourceFile}\" -frames:v 1 -vf \"scale=480:-2\" -q:v 3 \"{outputJpeg}\"";
+        var args = $"-hide_banner -loglevel error -y -ss {seconds} -i \"{sourceFile}\" -frames:v 1 -vf \"{filter}\" -q:v 3 \"{outputJpeg}\"";
         return await JobAsync(args, outputJpeg, ct);
     }
 

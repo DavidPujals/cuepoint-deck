@@ -405,10 +405,63 @@ public partial class EditViewModel : ObservableObject
             MarkDirty();
             SuggestStatus = $"{result.Count} segments suggested ({cuts.Count} video cuts found). Check each one, then Save to keep them.";
             Log.Info($"Suggested {result.Count} segments for \"{_song.Title}\": {string.Join(", ", result.Select(x => $"{x.Name}@{x.StartText}"))}");
+            await ReadLyricsAsync(file, onlyEmpty: true, cts.Token);
         }
         catch (OperationCanceledException) { SuggestStatus = "Cancelled"; }
         catch (Exception ex) { Log.Error("Suggest segments", ex); SuggestStatus = "Analysis failed: " + ex.Message; }
         finally { IsSuggesting = false; }
+    }
+
+    /// <summary>Fills empty lyric notes by reading the on-screen text a moment after each segment starts (Windows OCR, offline).</summary>
+    [RelayCommand]
+    private async Task ReadLyricsFromVideoAsync()
+    {
+        if (_song is null || IsSuggesting) return;
+        var file = _localSourceFile ?? ResolveLocalFile();
+        if (file is null) { _shell.Flash("The media file isn't readable on this PC. Add a path mapping or do this on the Resolume PC.", transient: true, warn: true); return; }
+        if (!_services.Ffmpeg.IsAvailable) { _shell.Flash(_services.Ffmpeg.StatusText + ". Set the ffmpeg path in Settings.", transient: true, warn: true); return; }
+        IsSuggesting = true;
+        var cts = _suggestCts = new CancellationTokenSource();
+        try { await ReadLyricsAsync(file, onlyEmpty: true, cts.Token); }
+        finally { IsSuggesting = false; }
+    }
+
+    private async Task ReadLyricsAsync(string file, bool onlyEmpty, CancellationToken ct)
+    {
+        if (!Services.WindowsOcr.IsAvailable) { SuggestStatus = "Windows OCR is not available on this PC (no language pack), so lyric notes were not read."; return; }
+        var todo = Segments.Where(s => !onlyEmpty || string.IsNullOrWhiteSpace(s.Lyric)).ToList();
+        if (todo.Count == 0) { SuggestStatus = "Every segment already has a lyric note."; return; }
+        var dir = Path.Combine(Path.GetTempPath(), "SegmentDeck", "ocr");
+        Directory.CreateDirectory(dir);
+        int filled = 0;
+        for (int i = 0; i < todo.Count; i++)
+        {
+            if (ct.IsCancellationRequested) return;
+            var item = todo[i];
+            SuggestStatus = $"Reading lyrics from the video… {i + 1}/{todo.Count} ({item.Name})";
+            var end = _song!.SegmentEndMs(_song.Segments.IndexOf(item.Segment));
+            string note = "";
+            // Lyrics usually appear a moment after the section starts; try two points before giving up.
+            // Two moments after the section starts, each read as-is and then as inverted high-contrast grey (helps light text on dark video).
+            foreach (var offset in new[] { 2000.0, 4500.0 })
+            {
+                var at = Math.Min(item.StartMs + offset, Math.Max(item.StartMs, end - 500));
+                foreach (var filter in new string?[] { null, "format=gray,negate,eq=contrast=1.8" })
+                {
+                    var jpg = Path.Combine(dir, $"{_song.Id}-{item.Segment.Id}-{(long)at}-{(filter is null ? "raw" : "inv")}.jpg");
+                    var r = await _services.Ffmpeg.ThumbnailAsync(file, at, jpg, ct, width: 1280, extraFilter: filter);
+                    if (!r.Ok) break;
+                    var lines = await Services.WindowsOcr.ReadLinesAsync(jpg);
+                    try { File.Delete(jpg); } catch { }
+                    note = Services.WindowsOcr.ToLyricNote(lines);
+                    if (note.Length > 0) break;
+                }
+                if (note.Length > 0) break;
+            }
+            if (note.Length > 0) { item.Lyric = note; filled++; }
+        }
+        SuggestStatus = filled == 0 ? "No readable lyrics found in the video frames." : $"Lyric notes read from the video for {filled} of {todo.Count} segment(s). Check the wording; OCR is a draft.";
+        Log.Info($"OCR lyric notes: {filled}/{todo.Count} for \"{_song!.Title}\"");
     }
 
     [RelayCommand]

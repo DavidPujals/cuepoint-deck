@@ -88,7 +88,9 @@
                     <DockPanel DockPanel.Dock="Top">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                             <Button Content="Suggest segments" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,6,0" Command="{Binding SuggestSegmentsCommand}"
-                                    ToolTip="Analyses the audio and the video cuts on this PC and adds draft segments to check. No internet, no outside service."/>
+                                    ToolTip="Analyses the audio and the video cuts on this PC, adds draft segments, and reads their lyric notes off the video. No internet, no outside service."/>
+                            <Button Content="Read lyrics from video" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,6,0" Command="{Binding ReadLyricsFromVideoCommand}"
+                                    ToolTip="Fills empty lyric notes with the on-screen text just after each segment starts, using the OCR built into Windows."/>
                             <Button Content="Mark at Resolume playhead (M)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
                             <Button Content="Mark at scrubber (Shift+M)" Style="{StaticResource SmallButton}" MinHeight="30" Margin="6,0,0,0" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"/>
                         </StackPanel>

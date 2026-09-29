@@ -9,6 +9,115 @@
     "clipName": "WELCOME THE KING_V3_16x9_DXV3"
   },
   "durationMs": 376080,
-  "segments": [],
-  "updatedAt": "2026-09-29T04:07:04.7608511+00:00"
+  "segments": [
+    {
+      "id": "df45042d6a9c",
+      "name": "Verse 1",
+      "startMs": 0,
+      "color": "#4A90D9",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/df45042d6a9c.jpg",
+      "thumbAtMs": 0
+    },
+    {
+      "id": "f5cd41f7519e",
+      "name": "Verse 2",
+      "startMs": 35248,
+      "color": "#4A90D9",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/f5cd41f7519e.jpg",
+      "thumbAtMs": 35248
+    },
+    {
+      "id": "2b972cb7c2a6",
+      "name": "Verse 3",
+      "startMs": 73561,
+      "color": "#4A90D9",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/2b972cb7c2a6.jpg",
+      "thumbAtMs": 73561
+    },
+    {
+      "id": "ea7d19e23b23",
+      "name": "Chorus",
+      "startMs": 107276,
+      "color": "#F5A623",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/ea7d19e23b23.jpg",
+      "thumbAtMs": 107276
+    },
+    {
+      "id": "f185c16c7e30",
+      "name": "Bridge",
+      "startMs": 171642,
+      "color": "#BD10E0",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/f185c16c7e30.jpg",
+      "thumbAtMs": 171642
+    },
+    {
+      "id": "45e1df0beaef",
+      "name": "Verse 4",
+      "startMs": 197184,
+      "color": "#4A90D9",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/45e1df0beaef.jpg",
+      "thumbAtMs": 197184
+    },
+    {
+      "id": "d2dda50e577c",
+      "name": "Instrumental",
+      "startMs": 222726,
+      "color": "#7ED321",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/d2dda50e577c.jpg",
+      "thumbAtMs": 222726
+    },
+    {
+      "id": "705cfebd1ff0",
+      "name": "Verse 5",
+      "startMs": 236008,
+      "color": "#4A90D9",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/705cfebd1ff0.jpg",
+      "thumbAtMs": 236008
+    },
+    {
+      "id": "c29ffd131d5f",
+      "name": "Bridge",
+      "startMs": 258485,
+      "color": "#BD10E0",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/c29ffd131d5f.jpg",
+      "thumbAtMs": 258485
+    },
+    {
+      "id": "998f0608a480",
+      "name": "Chorus",
+      "startMs": 274321,
+      "color": "#F5A623",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/998f0608a480.jpg",
+      "thumbAtMs": 274321
+    },
+    {
+      "id": "50bf6fd1bca5",
+      "name": "Chorus",
+      "startMs": 332556,
+      "color": "#F5A623",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/50bf6fd1bca5.jpg",
+      "thumbAtMs": 332556
+    },
+    {
+      "id": "9d511065ffae",
+      "name": "Outro",
+      "startMs": 369337,
+      "color": "#8E8E93",
+      "lyric": "",
+      "thumb": "thumbs/cfcf4202-1e4c-488d-a2a6-29240cd0132e/9d511065ffae.jpg",
+      "thumbAtMs": 369337
+    }
+  ],
+  "updatedAt": "2026-09-29T04:25:17.0022969+00:00"
 }
