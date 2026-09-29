@@ -118,7 +118,8 @@ Keys (only while the Segment Deck window has focus; nothing is global because Re
 
 Edit mode never sends anything to Resolume, so it is safe during a service.
 
-- **New song from composition…** lists the clips with a media file; **New song from a file…** browses.
+- **New song from composition…** lists the clips on the song layer that have a media file (other layers hold the
+  same media as overlays and triggers, so they are not offered); **New song from a file…** browses.
   The title defaults to the clip name; the duration comes from Resolume, or from ffprobe.
 - **Mark at Resolume playhead (M)**: with the clip playing in Resolume, press M at each section.
 - **Suggest segments**: analyses the song on this PC (no internet, no outside service) and adds draft segments.

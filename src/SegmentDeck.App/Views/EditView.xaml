@@ -12,6 +12,7 @@
         <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:NullToVisibilityConverter x:Key="NullVis" Invert="True"/>
         <app:ImageAspectConverter x:Key="Aspect"/>
+        <app:AtLeastConverter x:Key="AtLeast"/>
         <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="MinHeight" Value="28"/>
             <Setter Property="FontSize" Value="12"/>
@@ -24,9 +25,11 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- Below about 1000x560 the panels would crush each other, so the view keeps that size and scrolls instead. -->
+    <!-- The page is exactly the size of the window's content area, so the segment list and filmstrip scroll inside
+         their own panels. Only below about 1360x720 of content does the whole page scroll, rather than crushing the panels. -->
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False">
-    <Grid MinWidth="980" MinHeight="540">
+    <Grid Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=1360}"
+          Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=720}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="250"/>
             <ColumnDefinition Width="10"/>

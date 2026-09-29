@@ -228,12 +228,15 @@ public partial class EditViewModel : ObservableObject
         Load(Json.Deserialize<Song>(Json.Serialize(value.Song))!, isNew: false);
     }
 
+    /// <summary>Clips a new song can be built from: only the song layer (Settings → Song layer). Other layers hold the
+    /// same media as overlays and manual triggers, and listing them would offer every song twice.</summary>
     private void RefreshCompositionClips()
     {
         CompositionClips.Clear();
         var comp = _services.Connection.Composition;
         if (comp is null) return;
-        foreach (var c in comp.Clips.Where(c => !c.IsEmpty && !string.IsNullOrEmpty(c.FilePath)))
+        var layer = _services.Settings.SongLayer;
+        foreach (var c in comp.Clips.Where(c => c.Layer == layer && !c.IsEmpty && !string.IsNullOrEmpty(c.FilePath)))
             CompositionClips.Add(new CompositionClipItem { Clip = c });
     }
 
@@ -257,7 +260,8 @@ public partial class EditViewModel : ObservableObject
     [RelayCommand]
     private void NewFromComposition()
     {
-        var window = new Views.PickClipWindow(CompositionClips.ToList()) { Owner = Application.Current.MainWindow };
+        RefreshCompositionClips();
+        var window = new Views.PickClipWindow(CompositionClips.ToList(), $"Pick the clip this song plays from. Only clips on the song layer (layer {_services.Settings.SongLayer}, set in Settings) with a media file are listed.") { Owner = Application.Current.MainWindow };
         if (window.ShowDialog() == true && window.Selected is not null) NewFromClip(window.Selected.Clip);
     }
 

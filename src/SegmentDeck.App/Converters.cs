@@ -87,3 +87,15 @@ public sealed class WidthBelowConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>Max(value, ConverterParameter): sizes a scrolling page to its viewport but never below a working minimum.</summary>
+public sealed class AtLeastConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var v = value is double d && !double.IsNaN(d) ? d : 0;
+        var min = double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var m) ? m : 0;
+        return Math.Max(v, min);
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

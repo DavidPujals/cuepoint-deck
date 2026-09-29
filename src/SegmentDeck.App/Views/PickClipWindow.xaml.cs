@@ -8,9 +8,10 @@ public partial class PickClipWindow : Window
 {
     public CompositionClipItem? Selected { get; private set; }
 
-    public PickClipWindow(List<CompositionClipItem> clips)
+    public PickClipWindow(List<CompositionClipItem> clips, string? hint = null)
     {
         InitializeComponent();
+        if (hint is not null) Hint.Text = hint;
         List.ItemsSource = clips;
         if (clips.Count > 0) List.SelectedIndex = 0;
     }

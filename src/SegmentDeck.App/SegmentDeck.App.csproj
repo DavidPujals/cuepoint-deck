@@ -18,7 +18,7 @@
     <AssemblyTitle>Segment Deck</AssemblyTitle>
     <Product>Segment Deck</Product>
     <!-- Bump this for every release; the in-app updater compares it to the latest GitHub release tag (vX.Y.Z). -->
-    <Version>0.2.3</Version>
+    <Version>0.2.4</Version>
     <!-- Self-contained single-file exe, no installer, no admin. WPF cannot be trimmed. -->
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
