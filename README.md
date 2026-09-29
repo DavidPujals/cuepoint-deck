@@ -119,6 +119,13 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 - **New song from composition…** lists the clips with a media file; **New song from a file…** browses.
   The title defaults to the clip name; the duration comes from Resolume, or from ffprobe.
 - **Mark at Resolume playhead (M)**: with the clip playing in Resolume, press M at each section.
+- **Suggest segments**: analyses the song on this PC (no internet, no outside service) and adds draft segments.
+  It decodes the audio with ffmpeg, finds where the harmony and timbre change, snaps those points to hard video
+  cuts, and names the parts by repetition: the most repeated, loudest block is the chorus, the earliest repeated
+  block the verses, a repeated block that always precedes a chorus the pre-chorus, one-off blocks late in the song
+  the bridge, quiet short ends the intro and outro. Expect most boundaries within a bar and the chorus labels right;
+  check each draft with the exact-frame preview, nudge, rename, then **Keep drafts** or just Save. Mark at playhead
+  during rehearsal is still the most accurate method for songs with unusual structure.
 - **Scrubber**: a filmstrip of one frame every 2 s, built once by ffmpeg at low priority and cached in the
   library. Drag the playhead, ←/→ steps a frame, Shift+←/→ a second, M marks at the scrubber when the clip
   isn't live (Shift+M always).

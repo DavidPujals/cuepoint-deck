@@ -87,6 +87,8 @@
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Suggest segments" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,6,0" Command="{Binding SuggestSegmentsCommand}"
+                                    ToolTip="Analyses the audio and the video cuts on this PC and adds draft segments to check. No internet, no outside service."/>
                             <Button Content="Mark at Resolume playhead (M)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
                             <Button Content="Mark at scrubber (Shift+M)" Style="{StaticResource SmallButton}" MinHeight="30" Margin="6,0,0,0" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"/>
                         </StackPanel>
@@ -95,6 +97,13 @@
                             <TextBlock Text="{Binding PlayheadText}" FontFamily="Consolas" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding PlayheadHint}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
+                    </DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,6,0,0" Visibility="{Binding SuggestStatus, Converter={StaticResource NotNullVis}}">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding HasDrafts, Converter={StaticResource Vis}}">
+                            <Button Content="Keep drafts" Style="{StaticResource SmallButton}" Command="{Binding AcceptDraftsCommand}"/>
+                            <Button Content="Discard drafts" Style="{StaticResource DangerButton}" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding DiscardDraftsCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding SuggestStatus}" FontSize="12" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                     </DockPanel>
                     <ListBox ItemsSource="{Binding Segments}" SelectedItem="{Binding SelectedSegment}" Margin="0,6,0,0" Background="#11151A" BorderBrush="{StaticResource LineBrush}"
                              HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -118,6 +127,7 @@
                                         </DockPanel>
                                         <TextBlock Text="{Binding Lyric}" FontSize="12" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
                                         <TextBlock Text="{Binding ThumbStatus}" FontSize="10" Foreground="{StaticResource WarnBrush}" Visibility="{Binding ThumbStatus, Converter={StaticResource NotNullVis}}"/>
+                                        <TextBlock Text="{Binding DraftText}" FontSize="10" FontStyle="Italic" Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsDraft, Converter={StaticResource Vis}}"/>
                                     </StackPanel>
                                 </Grid>
                             </DataTemplate>
