@@ -39,6 +39,22 @@ public partial class App : Application
         MainWindow = window;
         window.Show();
         ArmDebugScreenshot(window);
+        ArmDebugOcr();
+    }
+
+    /// <summary>Test aid: SEGMENTDECK_OCR_TEST=<image;image…> logs what Windows OCR reads from each image.</summary>
+    private static void ArmDebugOcr()
+    {
+        var images = Environment.GetEnvironmentVariable("SEGMENTDECK_OCR_TEST");
+        if (string.IsNullOrWhiteSpace(images)) return;
+        _ = Task.Run(async () =>
+        {
+            foreach (var image in images.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var lines = await SegmentDeck.App.Services.WindowsOcr.ReadLinesAsync(image.Trim());
+                Log.Info($"OCR test {Path.GetFileName(image)} ({SegmentDeck.App.Services.WindowsOcr.LanguageTag}): {lines.Count} lines: {string.Join(" | ", lines)}  → note: \"{SegmentDeck.App.Services.WindowsOcr.ToLyricNote(lines)}\"");
+            }
+        });
     }
 
     /// <summary>Test aid: SEGMENTDECK_SCREENSHOT=<png path> saves the window after a few seconds

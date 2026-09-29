@@ -125,7 +125,11 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
   block the verses, a repeated block that always precedes a chorus the pre-chorus, one-off blocks late in the song
   the bridge, quiet short ends the intro and outro. Expect most boundaries within a bar and the chorus labels right;
   check each draft with the exact-frame preview, nudge, rename, then **Keep drafts** or just Save. Mark at playhead
-  during rehearsal is still the most accurate method for songs with unusual structure.
+  during rehearsal is still the most accurate method for songs with unusual structure. It also reads each draft's
+  lyric note off the video (below).
+- **Read lyrics from video**: fills empty lyric notes with the on-screen text a couple of seconds after each segment
+  starts, using the OCR engine built into Windows 10/11 (offline, no service). Stylised fonts misread now and then,
+  so treat the notes as drafts and fix the odd word.
 - **Scrubber**: a filmstrip of one frame every 2 s, built once by ffmpeg at low priority and cached in the
   library. Drag the playhead, ←/→ steps a frame, Shift+←/→ a second, M marks at the scrubber when the clip
   isn't live (Shift+M always).
