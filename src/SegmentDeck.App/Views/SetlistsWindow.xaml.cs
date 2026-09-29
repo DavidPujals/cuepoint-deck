@@ -17,6 +17,10 @@ public partial class SetlistsWindow : Window
         InitializeComponent();
         _vm = new SetlistsViewModel(services);
         DataContext = _vm;
+        // Keep the column list live while the window is open (Resolume re-sends the composition on changes).
+        Action refresh = () => Dispatcher.BeginInvoke(_vm.RefreshSources);
+        services.MatchesChanged += refresh;
+        Closed += (_, _) => services.MatchesChanged -= refresh;
     }
 
     private void Library_MouseDoubleClick(object sender, MouseButtonEventArgs e) => _vm.AddSongCommand.Execute(null);

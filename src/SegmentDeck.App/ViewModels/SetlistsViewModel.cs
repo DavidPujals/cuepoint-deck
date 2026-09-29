@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SegmentDeck.Core.Library;
+using SegmentDeck.Core.Logging;
+using SegmentDeck.Core.Resolume;
 
 namespace SegmentDeck.App.ViewModels;
 
@@ -10,6 +13,16 @@ public sealed class SetlistEntry
 {
     public required Song Song { get; init; }
     public string Title => Song.Title;
+    public string Detail => Song.Segments.Count == 0 ? "no segments yet" : $"{Song.Segments.Count} segments";
+}
+
+/// <summary>A song to add: a Resolume column on the song layer (linked to a library song when its clip matches one).</summary>
+public sealed class SourceItem
+{
+    public required string Title { get; init; }
+    public required string Detail { get; init; }
+    public Song? Song { get; init; }
+    public ClipInfo? Clip { get; init; }
 }
 
 /// <summary>Create, rename, duplicate, delete setlists; add, reorder and remove songs. Every change saves at once.</summary>
@@ -22,8 +35,9 @@ public partial class SetlistsViewModel : ObservableObject
     [ObservableProperty] private string? _selectedName;
     public ObservableCollection<SetlistEntry> Entries { get; } = new();
     [ObservableProperty] private SetlistEntry? _selectedEntry;
-    public ObservableCollection<SongListItem> LibrarySongs { get; } = new();
-    [ObservableProperty] private SongListItem? _selectedLibrarySong;
+    public ObservableCollection<SourceItem> Sources { get; } = new();
+    [ObservableProperty] private SourceItem? _selectedSource;
+    [ObservableProperty] private string _sourceHeader = "";
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isActive;
 
@@ -33,14 +47,49 @@ public partial class SetlistsViewModel : ObservableObject
         Reload(services.Settings.ActiveSetlist);
     }
 
+    /// <summary>The song list on the right: Resolume's columns on the song layer, in column order. Falls back to the
+    /// library files when Resolume is not connected.</summary>
+    public void RefreshSources()
+    {
+        var keep = SelectedSource?.Title;
+        Sources.Clear();
+        var comp = _services.Connection.Composition;
+        var layer = comp?.Layer(_services.Settings.SongLayer);
+        if (comp is not null && layer is not null)
+        {
+            SourceHeader = $"RESOLUME COLUMNS (layer {layer.Index}{(layer.Name.Length > 0 ? " " + layer.Name : "")})";
+            foreach (var clip in layer.Clips)
+            {
+                if (clip.IsEmpty) continue;
+                var song = _services.Matches.SongForClip(clip.ClipId);
+                var columnName = comp.Column(clip.Column)?.Name ?? "";
+                var title = columnName.Length > 0 ? columnName : song?.Title ?? clip.Name;
+                Sources.Add(new SourceItem
+                {
+                    Title = title,
+                    Detail = song is null ? $"column {clip.Column} · not in the library yet (added as a new song)" : $"column {clip.Column} · {(song.Segments.Count == 0 ? "no segments yet" : song.Segments.Count + " segments")}",
+                    Song = song,
+                    Clip = clip,
+                });
+            }
+            if (Sources.Count == 0) SourceHeader += " · no clips on this layer";
+        }
+        else
+        {
+            SourceHeader = "LIBRARY (Resolume not connected)";
+            foreach (var song in _services.Library.Songs)
+                Sources.Add(new SourceItem { Title = song.Title, Detail = song.Segments.Count == 0 ? "no segments yet" : $"{song.Segments.Count} segments", Song = song });
+        }
+        if (keep is not null) SelectedSource = Sources.FirstOrDefault(x => x.Title == keep);
+    }
+
     private void Reload(string? select)
     {
         _loading = true;
         Names.Clear();
         foreach (var s in _services.Library.Setlists) Names.Add(s.Name);
-        LibrarySongs.Clear();
-        foreach (var s in _services.Library.Songs) LibrarySongs.Add(new SongListItem { Song = s });
         _loading = false;
+        RefreshSources();
         SelectedName = select is not null && Names.Contains(select) ? select : Names.FirstOrDefault();
         LoadEntries();
     }
@@ -85,32 +134,6 @@ public partial class SetlistsViewModel : ObservableObject
         var r = _services.Library.SaveSetlist(new Setlist { Name = name.Trim() });
         Status = r.Ok ? "Created" : $"Failed: {r.Error}";
         Reload(name.Trim());
-    }
-
-    /// <summary>Creates a saved setlist from the columns on the song layer, in column order, with the songs the library knows.</summary>
-    [RelayCommand]
-    private void ImportFromResolume()
-    {
-        var comp = _services.Connection.Composition;
-        var layer = comp?.Layer(_services.Settings.SongLayer);
-        if (comp is null || layer is null) { Status = $"Not connected, or there is no layer {_services.Settings.SongLayer} in the composition"; return; }
-        var ids = new List<string>();
-        var unknown = new List<string>();
-        foreach (var clip in layer.Clips)
-        {
-            if (clip.IsEmpty) continue;
-            var song = _services.Matches.SongForClip(clip.ClipId);
-            if (song is null) unknown.Add(comp.Column(clip.Column)?.Name is { Length: > 0 } n ? n : clip.Name);
-            else if (!ids.Contains(song.Id)) ids.Add(song.Id);
-        }
-        if (ids.Count == 0) { Status = $"No clip on layer {_services.Settings.SongLayer} matches a library song yet"; return; }
-        var baseName = $"{DateTime.Now:yyyy-MM-dd} {(comp.Name.Length > 0 ? comp.Name : "Resolume")}";
-        var name = baseName; int n2 = 2;
-        while (_services.Library.GetSetlist(name) is not null) name = $"{baseName} ({n2++})";
-        var r = _services.Library.SaveSetlist(new Setlist { Name = name, SongIds = ids });
-        Status = r.Ok ? $"Imported {ids.Count} songs from layer {_services.Settings.SongLayer}" + (unknown.Count > 0 ? $"; skipped {unknown.Count} not in the library: {string.Join(", ", unknown.Take(4))}" : "")
-                      : $"Failed: {r.Error}";
-        Reload(name);
     }
 
     [RelayCommand]
@@ -160,9 +183,26 @@ public partial class SetlistsViewModel : ObservableObject
     [RelayCommand]
     private void AddSong()
     {
-        if (SelectedName is null || SelectedLibrarySong is null) return;
-        Entries.Add(new SetlistEntry { Song = SelectedLibrarySong.Song });
+        if (SelectedName is null || SelectedSource is null) return;
+        var song = SelectedSource.Song;
+        if (song is null)
+        {
+            // A column whose clip has no song yet: create a stub in the library so the setlist can refer to it.
+            var clip = SelectedSource.Clip;
+            if (clip is null) return;
+            song = new Song
+            {
+                Title = SelectedSource.Title,
+                Clip = new ClipRef { FilePath = clip.FilePath, FileName = Path.GetFileName(clip.FilePath), ClipName = clip.Name },
+                DurationMs = (long)Math.Round(clip.DurationMs),
+            };
+            var saved = _services.Library.SaveSong(song);
+            if (!saved.Ok) { Status = $"Could not create \"{song.Title}\": {saved.Error}"; return; }
+            Log.Info($"Song \"{song.Title}\" created from Resolume column {clip.Column} with no segments; build them in Edit mode");
+        }
+        Entries.Add(new SetlistEntry { Song = song });
         Persist();
+        RefreshSources();
     }
 
     [RelayCommand]

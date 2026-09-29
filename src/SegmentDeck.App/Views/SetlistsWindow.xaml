@@ -23,8 +23,6 @@
         <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="SETLISTS"/>
-                <Button DockPanel.Dock="Bottom" Content="Import from Resolume columns" Style="{StaticResource SmallButton}" Margin="0,6,0,0" Command="{Binding ImportFromResolumeCommand}"
-                        ToolTip="One song per column, in column order, from the clips on the song layer"/>
                 <UniformGrid DockPanel.Dock="Bottom" Columns="2" Margin="0,8,0,0">
                     <Button Content="New" Style="{StaticResource SmallButton}" Margin="0,0,3,3" Command="{Binding NewCommand}"/>
                     <Button Content="Rename" Style="{StaticResource SmallButton}" Margin="3,0,0,3" Command="{Binding RenameCommand}"/>
@@ -49,16 +47,33 @@
                     <TextBlock Text="{Binding Status}" Foreground="{StaticResource MutedBrush}" Margin="14,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
                 <ListBox x:Name="EntryList" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" Margin="0,6,0,0" Background="#11151A" BorderBrush="{StaticResource LineBrush}" Foreground="{StaticResource InkBrush}"
-                         FontSize="15" AllowDrop="True" PreviewMouseLeftButtonDown="EntryList_PreviewMouseLeftButtonDown" PreviewMouseMove="EntryList_PreviewMouseMove" Drop="EntryList_Drop" DragOver="EntryList_DragOver"
-                         DisplayMemberPath="Title"/>
+                         FontSize="15" AllowDrop="True" PreviewMouseLeftButtonDown="EntryList_PreviewMouseLeftButtonDown" PreviewMouseMove="EntryList_PreviewMouseMove" Drop="EntryList_Drop" DragOver="EntryList_DragOver">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock Text="{Binding Title}"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </DockPanel>
         </Border>
 
         <Border Grid.Column="4" Style="{StaticResource Panel}" Margin="0">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="LIBRARY"/>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="{Binding SourceHeader}"/>
                 <Button DockPanel.Dock="Bottom" Content="◀ Add to setlist" Style="{StaticResource PrimaryButton}" Margin="0,8,0,0" Command="{Binding AddSongCommand}"/>
-                <ListBox ItemsSource="{Binding LibrarySongs}" SelectedItem="{Binding SelectedLibrarySong}" Background="#11151A" BorderBrush="{StaticResource LineBrush}" Foreground="{StaticResource InkBrush}" FontSize="14" DisplayMemberPath="Title" MouseDoubleClick="Library_MouseDoubleClick"/>
+                <ListBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" Background="#11151A" BorderBrush="{StaticResource LineBrush}" Foreground="{StaticResource InkBrush}" FontSize="14" MouseDoubleClick="Library_MouseDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="1">
+                                <TextBlock Text="{Binding Title}"/>
+                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </DockPanel>
         </Border>
     </Grid>
