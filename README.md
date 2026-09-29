@@ -137,9 +137,11 @@ Two ways to get a running order:
   song layer, in column order, named after the column (or the song when the column is unnamed). It rebuilds itself
   whenever the composition changes. Entries whose clip isn't in the library yet show in italics; they can still be
   launched from the top, and the header's **Add to library** button builds the song once the clip is live.
-- **Saved setlists**: **Setlists** in the top bar (or Manage… in the strip): create, rename, duplicate, delete; add
-  songs from the library, drag or use Up/Down to reorder, remove. **Import from Resolume columns** creates one from
-  the current column order. **Use in Show mode** makes it active.
+- **Saved setlists**: **Setlists** in the top bar (or Manage… in the strip): create, rename, duplicate, delete, drag
+  or use Up/Down to reorder, remove. The list of songs to add on the right is **Resolume's columns on the song layer**
+  (Resolume holds the whole catalogue, so a service is picked from it column by column). Adding a column whose clip
+  already has a song in the library adds that song; adding one that doesn't creates a stub song for it (title from the
+  column, no segments yet) so it can be built in Edit mode later. **Use in Show mode** makes a setlist active.
 
 Show mode also works without any setlist; it just follows whatever clip is connected.
 
