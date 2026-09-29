@@ -9,6 +9,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SegmentDeck.Core;
+using SegmentDeck.Core.Analysis;
 using SegmentDeck.Core.Library;
 using SegmentDeck.Core.Logging;
 using SegmentDeck.Core.Matching;
@@ -49,6 +50,9 @@ public partial class SegmentEditItem : ObservableObject
 
     [ObservableProperty] private BitmapImage? _thumb;
     [ObservableProperty] private string _thumbStatus = "";
+    /// <summary>Suggested by the analyser and not yet accepted. Drafts save like any segment; the flag is display only.</summary>
+    [ObservableProperty] private bool _isDraft;
+    [ObservableProperty] private string _draftText = "";
     public bool ThumbNeedsUpdate => Segment.Thumb is null || Segment.ThumbAtMs != Segment.StartMs;
 
     public void RefreshThumb(SongLibrary lib)
@@ -129,6 +133,12 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private SegmentEditItem? _selectedSegment;
     public string[] QuickNamesList => QuickNames;
     public string[] PaletteList => Palette;
+
+    // ---- suggestions
+    [ObservableProperty] private bool _hasDrafts;
+    [ObservableProperty] private bool _isSuggesting;
+    [ObservableProperty] private string _suggestStatus = "";
+    private CancellationTokenSource? _suggestCts;
 
     // ---- Resolume playhead
     [ObservableProperty] private bool _playheadAvailable;
@@ -271,6 +281,9 @@ public partial class EditViewModel : ObservableObject
         foreach (var s in song.Segments) Segments.Add(new SegmentEditItem(this, s));
         foreach (var s in Segments) s.RefreshThumb(_services.Library);
         SelectedSegment = Segments.FirstOrDefault();
+        HasDrafts = false;
+        SuggestStatus = "";
+        _suggestCts?.Cancel();
         IsDirty = isNew;
         SaveStatusText = isNew ? "New song (not saved yet)" : $"Loaded from {Path.GetFileName(_services.Library.SongPath(song.Id))}";
         OnPropertyChanged(nameof(DurationMs));
@@ -340,6 +353,93 @@ public partial class EditViewModel : ObservableObject
         var used = Segments.Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var n in new[] { "Intro", "Verse 1", "Chorus", "Verse 2", "Bridge", "Outro" }) if (!used.Contains(n)) return n;
         return $"Segment {Segments.Count + 1}";
+    }
+
+    /// <summary>Audio structure + video cuts → draft segments. Offline, low priority, a human keeps or discards them.</summary>
+    [RelayCommand]
+    private async Task SuggestSegmentsAsync()
+    {
+        if (_song is null || IsSuggesting) return;
+        var file = _localSourceFile ?? ResolveLocalFile();
+        if (file is null) { _shell.Flash("The media file isn't readable on this PC, so it can't be analysed. Add a path mapping or do this on the Resolume PC.", transient: true, warn: true); return; }
+        if (!_services.Ffmpeg.IsAvailable) { _shell.Flash(_services.Ffmpeg.StatusText + ". Set the ffmpeg path in Settings.", transient: true, warn: true); return; }
+
+        bool replace = false;
+        if (Segments.Count > 0)
+        {
+            var r = Views.DarkMessageBox.Show($"\"{_song.Title}\" already has {Segments.Count} segment(s).\n\nYes = replace them with the suggestions\nNo = keep them and add the suggestions as drafts",
+                "Suggest segments", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (r == MessageBoxResult.Cancel) return;
+            replace = r == MessageBoxResult.Yes;
+        }
+
+        IsSuggesting = true;
+        var cts = _suggestCts = new CancellationTokenSource();
+        var progress = new Progress<string>(m => SuggestStatus = m);
+        try
+        {
+            SuggestStatus = "Decoding audio…";
+            var pcm = await _services.Ffmpeg.DecodeAudioAsync(file, 22050, cts.Token);
+            if (pcm is null) { SuggestStatus = "Could not decode the audio (see log)"; return; }
+            SuggestStatus = "Finding video cuts…";
+            var cuts = await _services.Ffmpeg.SceneCutsAsync(file, 0.2, cts.Token);
+            var result = await Task.Run(() => StructureAnalyzer.Analyze(pcm, 22050, cuts, null, progress), cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            if (replace)
+            {
+                _song.Segments.Clear();
+                Segments.Clear();
+            }
+            foreach (var s in result)
+            {
+                var seg = new Segment { Name = s.Name, StartMs = s.StartMs, Color = ColorFor(s.Name) };
+                _song.Segments.Add(seg);
+                var item = new SegmentEditItem(this, seg) { IsDraft = true, DraftText = $"draft · {s.Basis} · confidence {s.Confidence:0.00}" };
+                Segments.Add(item);
+                item.RefreshThumb(_services.Library);
+            }
+            Resort();
+            HasDrafts = Segments.Any(x => x.IsDraft);
+            SelectedSegment = Segments.FirstOrDefault(x => x.IsDraft);
+            MarkDirty();
+            SuggestStatus = $"{result.Count} segments suggested ({cuts.Count} video cuts found). Check each one, then Save to keep them.";
+            Log.Info($"Suggested {result.Count} segments for \"{_song.Title}\": {string.Join(", ", result.Select(x => $"{x.Name}@{x.StartText}"))}");
+        }
+        catch (OperationCanceledException) { SuggestStatus = "Cancelled"; }
+        catch (Exception ex) { Log.Error("Suggest segments", ex); SuggestStatus = "Analysis failed: " + ex.Message; }
+        finally { IsSuggesting = false; }
+    }
+
+    [RelayCommand]
+    private void DiscardDrafts()
+    {
+        if (_song is null) return;
+        foreach (var d in Segments.Where(x => x.IsDraft).ToList()) { _song.Segments.Remove(d.Segment); Segments.Remove(d); }
+        HasDrafts = false;
+        SuggestStatus = "";
+        MarkDirty();
+        SelectedSegment = Segments.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    private void AcceptDrafts()
+    {
+        foreach (var d in Segments) { d.IsDraft = false; d.DraftText = ""; }
+        HasDrafts = false;
+        SuggestStatus = "";
+    }
+
+    private static string ColorFor(string name)
+    {
+        var n = name.ToLowerInvariant();
+        if (n.StartsWith("intro") || n.StartsWith("outro")) return "#8E8E93";
+        if (n.StartsWith("pre")) return "#50E3C2";
+        if (n.StartsWith("chorus")) return "#F5A623";
+        if (n.StartsWith("bridge")) return "#BD10E0";
+        if (n.StartsWith("instrumental")) return "#7ED321";
+        if (n.StartsWith("tag")) return "#F8E71C";
+        return "#4A90D9";
     }
 
     [RelayCommand] private void MarkAtPlayhead() { if (_services.Estimator.EstimateMs() is double ms && PlayheadAvailable) AddSegmentAt(ms, "Resolume playhead"); else _shell.Flash("The song's clip is not live in Resolume. Connect it, or use the scrubber.", transient: true, warn: true); }
@@ -531,6 +631,7 @@ public partial class EditViewModel : ObservableObject
         }
         _isNew = false;
         IsDirty = false;
+        if (HasDrafts) AcceptDrafts();
         SaveStatusText = $"Saved {DateTime.Now:HH:mm:ss}";
         _suppressSelect = true;
         RefreshSongList();

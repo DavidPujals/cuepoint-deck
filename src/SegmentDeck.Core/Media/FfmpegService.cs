@@ -66,6 +66,62 @@ public sealed class FfmpegService
         return result;
     }
 
+    /// <summary>Decodes the audio track to mono float samples at <paramref name="sampleRate"/> Hz, for structure analysis.</summary>
+    public async Task<float[]?> DecodeAudioAsync(string sourceFile, int sampleRate = 22050, CancellationToken ct = default)
+    {
+        if (!IsAvailable || !File.Exists(sourceFile)) return null;
+        await _oneAtATime.WaitAsync(ct);
+        try
+        {
+            var args = $"-hide_banner -loglevel error -i \"{sourceFile}\" -vn -ac 1 -ar {sampleRate} -f s16le -";
+            var (code, bytes, err) = await RunBinaryAsync(_ffmpegPath, args, TimeSpan.FromMinutes(5), ct);
+            if (code != 0 || bytes.Length < sampleRate * 2) { Log.Warn($"Audio decode failed ({code}): {err.Trim()}"); return null; }
+            var samples = new float[bytes.Length / 2];
+            for (int i = 0; i < samples.Length; i++) samples[i] = BitConverter.ToInt16(bytes, i * 2) / 32768f;
+            Log.Info($"Decoded {samples.Length / (double)sampleRate:0.0} s of audio from {Path.GetFileName(sourceFile)}");
+            return samples;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex) { Log.Error("Audio decode", ex); return null; }
+        finally { _oneAtATime.Release(); }
+    }
+
+    /// <summary>Timestamps (seconds) of hard video cuts, from ffmpeg's scene-change detector on a downscaled picture.</summary>
+    public async Task<List<double>> SceneCutsAsync(string sourceFile, double threshold = 0.3, CancellationToken ct = default)
+    {
+        var cuts = new List<double>();
+        if (!IsAvailable || !File.Exists(sourceFile)) return cuts;
+        await _oneAtATime.WaitAsync(ct);
+        try
+        {
+            var thr = threshold.ToString("0.00", CultureInfo.InvariantCulture);
+            var args = $"-hide_banner -loglevel info -i \"{sourceFile}\" -an -vf \"scale=160:-2,select='gt(scene,{thr})',showinfo\" -f null -";
+            var (_, output) = await RunAsync(_ffmpegPath, args, TimeSpan.FromMinutes(5), ct);
+            foreach (Match m in Regex.Matches(output, @"pts_time:\s*([0-9.]+)"))
+                if (double.TryParse(m.Groups[1].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var t)) cuts.Add(t);
+            Log.Info($"Scene cuts: {cuts.Count} in {Path.GetFileName(sourceFile)}");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Error("Scene cuts", ex); }
+        finally { _oneAtATime.Release(); }
+        return cuts;
+    }
+
+    private static async Task<(int code, byte[] stdout, string stderr)> RunBinaryAsync(string exe, string args, TimeSpan timeout, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException("could not start " + exe);
+        try { p.PriorityClass = ProcessPriorityClass.BelowNormal; } catch { }
+        var ms = new MemoryStream();
+        var copy = p.StandardOutput.BaseStream.CopyToAsync(ms, ct);
+        var stderr = p.StandardError.ReadToEndAsync();
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(timeout);
+        try { await p.WaitForExitAsync(cts.Token); await copy; }
+        catch (OperationCanceledException) { try { p.Kill(true); } catch { } throw; }
+        return (p.ExitCode, ms.ToArray(), await stderr);
+    }
+
     /// <summary>Duration in ms via ffprobe, falling back to parsing ffmpeg's banner.</summary>
     public async Task<double?> DurationMsAsync(string sourceFile)
     {
