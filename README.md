@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="96" align="right" alt="Cuepoint Deck icon">
+
 # Cuepoint Deck
 
 Cuepoint Deck is a Windows app for Nova Church's visuals operator. It fires named sections of a song
@@ -209,6 +211,9 @@ whose file is in more than one clip prefers the song layer and shows a warning. 
 composition shows as unavailable. A broken JSON file is skipped with a warning and never stops the app.
 
 ## Building
+
+The app icon is `src/CuepointDeck.App/Assets/cuepointdeck.svg`. The `.ico` (16 to 256 px) and the PNGs next to it
+and in `docs/` are rendered from it; re-render them if the SVG changes.
 
 ```bash
 dotnet build CuepointDeck.sln -c Release

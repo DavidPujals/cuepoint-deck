@@ -5,7 +5,7 @@
         Width="470" SizeToContent="Height" ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
     <StackPanel Margin="22,20">
         <StackPanel Orientation="Horizontal">
-            <Image Source="/Assets/cuepointdeck.ico" Width="52" Height="52"/>
+            <Image Source="/Assets/cuepointdeck.png" Width="52" Height="52" RenderOptions.BitmapScalingMode="HighQuality"/>
             <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
                 <TextBlock Text="Cuepoint Deck" FontSize="17" FontWeight="SemiBold"/>
                 <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedBrush}" FontSize="12" Margin="0,3,0,0"/>
