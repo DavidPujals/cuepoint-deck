@@ -63,7 +63,7 @@ public partial class SetlistsViewModel : ObservableObject
         var r = _services.Library.SaveSetlist(setlist, overwrite: false);
         if (r.Status == SaveStatus.Conflict)
         {
-            if (MessageBox.Show($"\"{SelectedName}\" changed on disk (probably from the other PC). Overwrite it with this version?", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            if (Views.DarkMessageBox.Show($"\"{SelectedName}\" changed on disk (probably from the other PC). Overwrite it with this version?", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                 r = _services.Library.SaveSetlist(setlist, overwrite: true);
             else { LoadEntries(); return; }
         }
@@ -114,7 +114,7 @@ public partial class SetlistsViewModel : ObservableObject
     private void Delete()
     {
         if (SelectedName is null) return;
-        if (MessageBox.Show($"Delete setlist \"{SelectedName}\"? A .bak copy is kept.", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        if (Views.DarkMessageBox.Show($"Delete setlist \"{SelectedName}\"? A .bak copy is kept.", "Segment Deck", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         _services.Library.DeleteSetlist(SelectedName);
         if (IsActive) { var s = _services.Settings.Clone(); s.ActiveSetlist = null; _ = _services.ApplySettingsAsync(s); }
         Reload(null);
