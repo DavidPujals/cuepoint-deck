@@ -87,6 +87,32 @@ public partial class SetlistsViewModel : ObservableObject
         Reload(name.Trim());
     }
 
+    /// <summary>Creates a saved setlist from the columns on the song layer, in column order, with the songs the library knows.</summary>
+    [RelayCommand]
+    private void ImportFromResolume()
+    {
+        var comp = _services.Connection.Composition;
+        var layer = comp?.Layer(_services.Settings.SongLayer);
+        if (comp is null || layer is null) { Status = $"Not connected, or there is no layer {_services.Settings.SongLayer} in the composition"; return; }
+        var ids = new List<string>();
+        var unknown = new List<string>();
+        foreach (var clip in layer.Clips)
+        {
+            if (clip.IsEmpty) continue;
+            var song = _services.Matches.SongForClip(clip.ClipId);
+            if (song is null) unknown.Add(comp.Column(clip.Column)?.Name is { Length: > 0 } n ? n : clip.Name);
+            else if (!ids.Contains(song.Id)) ids.Add(song.Id);
+        }
+        if (ids.Count == 0) { Status = $"No clip on layer {_services.Settings.SongLayer} matches a library song yet"; return; }
+        var baseName = $"{DateTime.Now:yyyy-MM-dd} {(comp.Name.Length > 0 ? comp.Name : "Resolume")}";
+        var name = baseName; int n2 = 2;
+        while (_services.Library.GetSetlist(name) is not null) name = $"{baseName} ({n2++})";
+        var r = _services.Library.SaveSetlist(new Setlist { Name = name, SongIds = ids });
+        Status = r.Ok ? $"Imported {ids.Count} songs from layer {_services.Settings.SongLayer}" + (unknown.Count > 0 ? $"; skipped {unknown.Count} not in the library: {string.Join(", ", unknown.Take(4))}" : "")
+                      : $"Failed: {r.Error}";
+        Reload(name);
+    }
+
     [RelayCommand]
     private void Rename()
     {

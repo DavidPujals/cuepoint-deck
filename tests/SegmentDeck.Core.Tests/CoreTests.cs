@@ -379,3 +379,17 @@ public class ClipMatcherTests
         Assert.False(table.For(song)!.IsAvailable);
     }
 }
+
+public class CompositionColumnTests
+{
+    [Fact]
+    public void Columns_are_parsed_with_placeholder_names_blanked()
+    {
+        var comp = Composition.Parse(TestData.Json("composition-with-clip.json"));
+        Assert.Equal(9, comp.Columns.Count);
+        Assert.Equal(1, comp.Columns[0].Index);
+        Assert.Equal("", comp.Columns[0].Name);
+        Assert.NotNull(comp.Column(9));
+        Assert.Null(comp.Column(10));
+    }
+}

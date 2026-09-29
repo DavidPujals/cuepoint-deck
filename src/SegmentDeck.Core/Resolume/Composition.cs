@@ -63,11 +63,20 @@ public sealed class LayerInfo
     public ClipInfo? ConnectedClip => Clips.FirstOrDefault(c => c.IsConnected);
 }
 
+public sealed class ColumnInfo
+{
+    public int Index { get; init; }
+    public long Id { get; init; }
+    /// <summary>The column's name as typed in Resolume. Empty when it still has the default "Column #" placeholder.</summary>
+    public string Name { get; init; } = "";
+}
+
 /// <summary>Parsed snapshot of the composition message. Replaced wholesale whenever Resolume re-sends it.</summary>
 public sealed class Composition
 {
     public string Name { get; init; } = "";
     public IReadOnlyList<LayerInfo> Layers { get; init; } = Array.Empty<LayerInfo>();
+    public IReadOnlyList<ColumnInfo> Columns { get; init; } = Array.Empty<ColumnInfo>();
     public IReadOnlyList<ClipInfo> Clips { get; init; } = Array.Empty<ClipInfo>();
     public DateTime ReceivedAt { get; init; } = DateTime.Now;
 
@@ -83,6 +92,7 @@ public sealed class Composition
     public ClipInfo? BySpeedParam(long id) => _bySpeedParam.GetValueOrDefault(id);
     public ClipInfo? ByPlayDirectionParam(long id) => _byPlayDirectionParam.GetValueOrDefault(id);
     public LayerInfo? Layer(int index) => Layers.FirstOrDefault(l => l.Index == index);
+    public ColumnInfo? Column(int index) => Columns.FirstOrDefault(c => c.Index == index);
     public ClipInfo? ConnectedClipOn(int layer) => Layer(layer)?.ConnectedClip;
     public IEnumerable<ClipInfo> ConnectedClips => Clips.Where(c => c.IsConnected);
 
@@ -113,7 +123,20 @@ public sealed class Composition
             }
         }
 
-        var comp = new Composition { Name = ParamString(root, "name"), Layers = layers, Clips = all };
+        var columns = new List<ColumnInfo>();
+        if (root.TryGetProperty("columns", out var columnsEl) && columnsEl.ValueKind == JsonValueKind.Array)
+        {
+            int ci = 0;
+            foreach (var col in columnsEl.EnumerateArray())
+            {
+                ci++;
+                var name = ParamString(col, "name").Trim();
+                if (name == "Column #") name = "";   // Resolume's placeholder for an unnamed column
+                columns.Add(new ColumnInfo { Index = ci, Id = Id(col), Name = name });
+            }
+        }
+
+        var comp = new Composition { Name = ParamString(root, "name"), Layers = layers, Columns = columns, Clips = all };
         foreach (var c in all)
         {
             comp._byClipId[c.ClipId] = c;

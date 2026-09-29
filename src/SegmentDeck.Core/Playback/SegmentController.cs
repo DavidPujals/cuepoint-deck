@@ -151,6 +151,20 @@ public sealed class SegmentController : ISegmentController, IDisposable
 
     public Task LaunchSongAsync(Song song) => LaunchAtAsync(song, song.Segments.FirstOrDefault()?.StartMs ?? 0, null);
 
+    /// <summary>Connect a clip that has no library song (a setlist entry taken from Resolume's columns). Starts from the top.</summary>
+    public async Task LaunchClipAsync(ClipInfo clip)
+    {
+        if (ReadOnly) { Warn("Follow role: this instance cannot launch clips"); return; }
+        if (!_link.CanSend) { Warn("Not connected to Resolume"); return; }
+        ClearQueue("launch");
+        try
+        {
+            Log.Info($"LAUNCH clip {clip.Display}: connect");
+            await _link.ConnectClipAsync(clip);
+        }
+        catch (Exception ex) { Log.Error($"Launching clip {clip.Display}", ex); Warn($"Launch failed: {ex.Message}"); }
+    }
+
     // ------------------------------------------------------------------ guards and launch
 
     private bool Guard(Song song, Segment segment, out ClipInfo? clip)
