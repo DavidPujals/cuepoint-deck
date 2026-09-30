@@ -10,7 +10,12 @@ public sealed class SongMatch
     public required Song Song { get; init; }
     public ClipInfo? Clip { get; init; }
     public MatchKind Kind { get; init; }
+    /// <summary>Clips that could each be "the" song clip: those on the song layer, or, when the song layer has none,
+    /// one per column elsewhere. More than one means the operator has to sort it out.</summary>
     public IReadOnlyList<ClipInfo> Candidates { get; init; } = Array.Empty<ClipInfo>();
+    /// <summary>Every clip of this file in the composition, including the copies on other layers (overlays, triggers)
+    /// that share a column with the song clip. Used to map whatever Resolume connects back to the song.</summary>
+    public IReadOnlyList<ClipInfo> AllClips { get; init; } = Array.Empty<ClipInfo>();
     public bool IsAvailable => Clip is not null;
     public bool Ambiguous => Candidates.Count > 1;
     public string? Warning { get; init; }
@@ -33,14 +38,17 @@ public sealed class MatchTable
     internal void Add(SongMatch match)
     {
         _bySong[match.Song.Id] = match;
-        foreach (var c in match.Candidates) _byClipId.TryAdd(c.ClipId, match.Song);
+        foreach (var c in match.AllClips) _byClipId.TryAdd(c.ClipId, match.Song);
     }
 }
 
 public static class ClipMatcher
 {
     /// <summary>Matches every song to a clip by source file path, then by mapped path, then by file name.
-    /// More than one clip for a song: prefer the one on <paramref name="songLayer"/> and flag it.</summary>
+    /// A song's file is normally in several layers of its column (background, overlay, the manual-trigger copy on the
+    /// song layer), so only the song layer counts: one clip there is the match, more than one is flagged. Copies on
+    /// other layers are never a conflict. Only when the song layer has none do other layers stand in, and then
+    /// several columns is the conflict.</summary>
     public static MatchTable Build(Composition? composition, IEnumerable<Song> songs, PathMapper mapper, int songLayer)
     {
         var table = new MatchTable();
@@ -81,13 +89,26 @@ public static class ClipMatcher
                 continue;
             }
 
-            var ordered = candidates.OrderBy(c => c.Layer).ThenBy(c => c.Column).ToList();
-            var chosen = ordered.FirstOrDefault(c => c.Layer == songLayer) ?? ordered[0];
+            var all = candidates.OrderBy(c => c.Layer).ThenBy(c => c.Column).ToList();
+            var onSongLayer = all.Where(c => c.Layer == songLayer).OrderBy(c => c.Column).ToList();
+            List<ClipInfo> contenders;
             string? warning = null;
-            if (ordered.Count > 1)
-                warning = $"Matches {ordered.Count} clips ({string.Join(", ", ordered.Select(c => $"L{c.Layer} C{c.Column}"))}); using L{chosen.Layer} C{chosen.Column}";
+            if (onSongLayer.Count > 0)
+            {
+                contenders = onSongLayer;
+                if (contenders.Count > 1)
+                    warning = $"In {contenders.Count} columns on the song layer ({string.Join(", ", contenders.Select(c => $"C{c.Column}"))}); using C{contenders[0].Column}";
+            }
+            else
+            {
+                // Not on the song layer at all: one stand-in per column, lowest layer first.
+                contenders = all.GroupBy(c => c.Column).Select(g => g.OrderBy(c => c.Layer).First()).OrderBy(c => c.Column).ToList();
+                if (contenders.Count > 1)
+                    warning = $"Not on the song layer; found in columns {string.Join(", ", contenders.Select(c => $"C{c.Column}"))}; using L{contenders[0].Layer} C{contenders[0].Column}";
+            }
+            var chosen = contenders[0];
 
-            table.Add(new SongMatch { Song = song, Clip = chosen, Kind = kind, Candidates = ordered, Warning = warning });
+            table.Add(new SongMatch { Song = song, Clip = chosen, Kind = kind, Candidates = contenders, AllClips = all, Warning = warning });
         }
         return table;
     }

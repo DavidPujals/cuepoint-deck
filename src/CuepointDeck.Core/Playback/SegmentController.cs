@@ -205,20 +205,35 @@ public sealed class SegmentController : ISegmentController, IDisposable
         Raise(() => QueueChanged?.Invoke());
     }
 
-    public Task LaunchSongAsync(Song song) => LaunchAtAsync(song, song.Segments.FirstOrDefault()?.StartMs ?? 0, null);
-
-    /// <summary>Connect a clip that has no library song (a setlist entry taken from Resolume's columns). Starts from the top.</summary>
-    public async Task LaunchClipAsync(ClipInfo clip)
+    /// <summary>Bring up a song from the setlist: trigger its column, so every layer of that column (backgrounds,
+    /// overlays and the song clip itself) changes together, exactly as clicking the column in Resolume would.</summary>
+    public async Task LaunchSongAsync(Song song)
     {
-        if (ReadOnly) { Warn("Follow role: this instance cannot launch clips"); return; }
+        if (ReadOnly) { Warn("Follow role: this instance cannot launch songs"); return; }
         if (!_link.CanSend) { Warn("Not connected to Resolume"); return; }
+        var clip = _resolveClip(song);
+        if (clip is null) { Warn($"\"{song.Title}\" is not in the composition"); return; }
+        await LaunchColumnAsync(clip.Column, $"\"{song.Title}\"");
+    }
+
+    /// <summary>Same for a setlist entry that has no library song yet: the column its clip sits in.</summary>
+    public Task LaunchClipAsync(ClipInfo clip)
+    {
+        if (ReadOnly) { Warn("Follow role: this instance cannot launch clips"); return Task.CompletedTask; }
+        if (!_link.CanSend) { Warn("Not connected to Resolume"); return Task.CompletedTask; }
+        return LaunchColumnAsync(clip.Column, clip.Display);
+    }
+
+    private async Task LaunchColumnAsync(int column, string what)
+    {
         ClearQueue("launch");
+        SetLoop(-1, "launch");
         try
         {
-            Log.Info($"LAUNCH clip {clip.Display}: connect");
-            await _link.ConnectClipAsync(clip);
+            Log.Info($"LAUNCH {what}: trigger column {column}");
+            await _link.ConnectColumnAsync(column);
         }
-        catch (Exception ex) { Log.Error($"Launching clip {clip.Display}", ex); Warn($"Launch failed: {ex.Message}"); }
+        catch (Exception ex) { Log.Error($"Launching column {column} for {what}", ex); Warn($"Launch failed: {ex.Message}"); }
     }
 
     // ------------------------------------------------------------------ guards and launch

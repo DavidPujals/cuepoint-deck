@@ -335,15 +335,18 @@ public class ClipMatcherTests
     [Fact]
     public void Duplicate_clips_prefer_song_layer_and_warn()
     {
+        // The file is on L1 C1 and L2 C3. With the song layer at 2 the L2 clip is the song and the other copy is
+        // just another layer: no conflict.
         var song = SongFor(ArenaPath);
         var table = ClipMatcher.Build(Comp(), new[] { song }, new PathMapper(null), songLayer: 2);
         var m = table.For(song)!;
         Assert.True(m.IsAvailable);
         Assert.Equal(MatchKind.Path, m.Kind);
-        Assert.True(m.Ambiguous);
+        Assert.False(m.Ambiguous);
+        Assert.Null(m.Warning);
         Assert.Equal(2, m.Clip!.Layer);
         Assert.Equal(3, m.Clip.Column);
-        Assert.Contains("Matches 2 clips", m.Warning);
+        Assert.Equal(2, m.AllClips.Count);
 
         var other = ClipMatcher.Build(Comp(), new[] { song }, new PathMapper(null), songLayer: 1).For(song)!;
         Assert.Equal(1, other.Clip!.Layer);
@@ -352,6 +355,33 @@ public class ClipMatcherTests
         Assert.Same(song, table.SongForClip(1769995378214));
         Assert.Same(song, table.SongForClip(999000111));
         Assert.Null(table.SongForClip(42));
+    }
+
+    private static ClipInfo Clip(long id, int layer, int column, string path) =>
+        new() { ClipId = id, Layer = layer, Column = column, Name = System.IO.Path.GetFileNameWithoutExtension(path), FilePath = path, DurationMs = 1000, Fps = 25, PosMin = 0, PosMax = 1000 };
+
+    [Fact]
+    public void Same_file_on_other_layers_of_the_column_is_not_a_conflict_but_two_song_layer_columns_are()
+    {
+        var song = SongFor(ArenaPath);
+        var stacked = new Composition { Clips = new[] { Clip(1, 1, 5, ArenaPath), Clip(2, 2, 5, ArenaPath), Clip(3, 4, 5, ArenaPath) } };
+        var m = ClipMatcher.Build(stacked, new[] { song }, new PathMapper(null), songLayer: 4).For(song)!;
+        Assert.False(m.Ambiguous);
+        Assert.Equal(4, m.Clip!.Layer);
+        Assert.Same(song, ClipMatcher.Build(stacked, new[] { song }, new PathMapper(null), songLayer: 4).SongForClip(1));
+
+        var twoColumns = new Composition { Clips = new[] { Clip(1, 4, 2, ArenaPath), Clip(2, 4, 9, ArenaPath), Clip(3, 1, 2, ArenaPath) } };
+        var t = ClipMatcher.Build(twoColumns, new[] { song }, new PathMapper(null), songLayer: 4).For(song)!;
+        Assert.True(t.Ambiguous);
+        Assert.Equal(2, t.Clip!.Column);
+        Assert.Contains("C2, C9", t.Warning);
+
+        // Not on the song layer at all: other layers stand in, and several columns is the conflict.
+        var elsewhere = new Composition { Clips = new[] { Clip(1, 1, 2, ArenaPath), Clip(2, 2, 2, ArenaPath), Clip(3, 1, 7, ArenaPath) } };
+        var e = ClipMatcher.Build(elsewhere, new[] { song }, new PathMapper(null), songLayer: 4).For(song)!;
+        Assert.True(e.Ambiguous);
+        Assert.Equal(2, e.Candidates.Count);
+        Assert.Equal(1, e.Clip!.Layer);
     }
 
     [Fact]

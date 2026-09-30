@@ -9,7 +9,6 @@ namespace CuepointDeck.App;
 public partial class MainWindow : Window
 {
     private readonly ShellViewModel _vm;
-    private DateTime _lastSetlistDown;
 
     public MainWindow()
     {
@@ -54,12 +53,9 @@ public partial class MainWindow : Window
 
     private void SetlistSong_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Click selects; a quick second click launches (when launching is enabled).
+        // A click brings the song up: its column is triggered in Resolume and the cards follow.
         if (sender is not FrameworkElement { DataContext: SetlistSongItem item }) return;
-        _vm.Show.SelectSetlistSong(item);
-        var now = DateTime.Now;
-        if ((now - _lastSetlistDown).TotalMilliseconds < 400 && _vm.Show.CanLaunch) _vm.Show.LaunchSelectedCommand.Execute(null);
-        _lastSetlistDown = now;
+        _ = _vm.Show.LaunchItemAsync(item);
         e.Handled = true;
     }
 

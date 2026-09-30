@@ -139,7 +139,7 @@ public partial class ShowViewModel : ObservableObject
         var live = clip is { IsConnected: true } && song is not null;
         CanFire = !readOnly && connected && song is not null && (live || _services.Settings.LaunchSongsFromSetlist);
         CannotFireReason = readOnly ? "FOLLOW: read-only" : !connected ? "Not connected to Resolume" : song is null ? "" : !live ? "Clip not live" : "";
-        CanLaunch = !readOnly && connected && _services.Settings.LaunchSongsFromSetlist && SelectedSetlistIndex >= 0;
+        CanLaunch = !readOnly && connected && SelectedSetlistIndex >= 0;
 
         foreach (var item in SetlistSongs)
         {
@@ -388,7 +388,7 @@ public partial class ShowViewModel : ObservableObject
         if (index < 0 || index >= SetlistSongs.Count) return;
         for (int i = 0; i < SetlistSongs.Count; i++) SetlistSongs[i].IsSelected = i == index;
         SelectedSetlistIndex = index;
-        CanLaunch = _services.Settings.Role != AppRole.Follow && _services.Connection.State == ConnectionState.Connected && _services.Settings.LaunchSongsFromSetlist;
+        CanLaunch = _services.Settings.Role != AppRole.Follow && _services.Connection.State == ConnectionState.Connected;
     }
 
     private void MoveSelection(int delta)
@@ -408,6 +408,16 @@ public partial class ShowViewModel : ObservableObject
         var item = SetlistSongs[SelectedSetlistIndex];
         if (item.Song is not null) await _services.Controller.LaunchSongAsync(item.Song);
         else if (item.Clip is not null) await _services.Controller.LaunchClipAsync(item.Clip);
+    }
+
+    /// <summary>A click on a song in the top bar: select it and bring up its column in Resolume.</summary>
+    public async Task LaunchItemAsync(SetlistSongItem item)
+    {
+        SelectSetlistSong(item);
+        if (_services.Settings.Role == AppRole.Follow) { _shell.Flash("FOLLOW role: this instance cannot launch songs", transient: true); return; }
+        if (_services.Connection.State != ConnectionState.Connected) { _shell.Flash("Not connected to Resolume", transient: true, warn: true); return; }
+        if (!item.IsAvailable) { _shell.Flash($"\"{item.Title}\" is not in the composition", transient: true, warn: true); return; }
+        await LaunchSelectedAsync();
     }
 
     [RelayCommand]

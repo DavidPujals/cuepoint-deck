@@ -45,7 +45,7 @@
                 <ComboBoxItem Content="Cut (Shift = Queue)"/>
             </ComboBox>
             <Label Grid.Row="7" Content="Launch songs from setlist"/>
-            <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding LaunchSongsFromSetlist}" Margin="0,3" Content="Enter or a double-click on a setlist song connects its clip; firing a segment of a song that isn't live connects it first"/>
+            <CheckBox Grid.Row="7" Grid.Column="1" IsChecked="{Binding LaunchSongsFromSetlist}" Margin="0,3" Content="Firing a segment of a song that isn't live launches that song at the segment first (a click on a setlist song always brings up its column)"/>
             <Label Grid.Row="8" Content="Pin on top"/>
             <CheckBox Grid.Row="8" Grid.Column="1" IsChecked="{Binding AlwaysOnTop}" Margin="0,3" Content="Keep the window above Resolume (same as the pin in the top bar)"/>
             <Label Grid.Row="9" Content="Card size"/>

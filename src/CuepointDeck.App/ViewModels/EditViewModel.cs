@@ -247,9 +247,11 @@ public partial class EditViewModel : ObservableObject
     public void NewFromClip(ClipInfo clip)
     {
         if (!ConfirmDiscard()) return;
+        // Songs are laid out one per column and the column carries the song's name; the clip name is the file name.
+        var columnName = _services.Connection.Composition?.Column(clip.Column)?.Name;
         var song = new Song
         {
-            Title = clip.Name,
+            Title = string.IsNullOrWhiteSpace(columnName) ? clip.Name : columnName,
             Clip = new ClipRef { FilePath = clip.FilePath, FileName = Path.GetFileName(clip.FilePath), ClipName = clip.Name },
             DurationMs = (long)Math.Round(clip.DurationMs),
             Fps = clip.Fps > 0 ? clip.Fps : Timecode.DefaultFps,

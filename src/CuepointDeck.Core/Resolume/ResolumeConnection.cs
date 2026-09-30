@@ -329,6 +329,12 @@ public sealed class ResolumeConnection : IResolumeLink, IAsyncDisposable
         await socket.TriggerAsync(clip.ConnectPath).ConfigureAwait(false);
     }
 
+    public async Task ConnectColumnAsync(int column)
+    {
+        var socket = _socket ?? throw new InvalidOperationException("Not connected to Resolume");
+        await socket.TriggerAsync($"/composition/columns/{column}/connect").ConfigureAwait(false);
+    }
+
     /// <summary>Sets the clip's position in-point (REST; the WebSocket only writes values). Used by the flash-free launch order.</summary>
     public async Task<int> SetInPointMsAsync(ClipInfo clip, double ms)
     {

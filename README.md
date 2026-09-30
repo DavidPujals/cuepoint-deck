@@ -55,10 +55,10 @@ Open **Settings** to change:
 | Resolume host / port | Use the IP on VLAN 131 when running remotely. Prefer `127.0.0.1` over `localhost` locally. |
 | Role | **Controller** fires segments. **Follow** shows everything but cannot fire. Use Follow for a producer or FOH screen. |
 | Library path | A local folder, or a UNC share both PCs can see. |
-| Song layer | Breaks ties when a song's file is in more than one clip, and is where songs are launched. |
+| Song layer | The layer whose clips are the songs (default 4 here). Copies of the same file on other layers of the column are expected and ignored; two columns on the song layer with the same file is flagged. |
 | Latency offset | How early a queued jump is sent. Stored per host. Start at 40 ms locally; raise it remotely until queued jumps land on the boundary. |
 | Default trigger | What a plain click or number key does: Queue (default) or Cut. Shift does the other one. |
-| Launch songs from setlist | Off: you start songs in Resolume and Cuepoint Deck follows. On: Enter or a double-click on a setlist song connects it, and firing a segment of a song that isn't live launches it there. |
+| Launch songs from setlist | Off: firing a segment of a song that isn't live is refused. On: it launches that song at the segment. A click on a setlist song always brings up its column, whatever this is set to. |
 | Path mappings | `D:\Media => \\CITY-VISUALS\Media`, one per line. For editing on a PC that sees the media at a different path. |
 | ffmpeg path | Only needed for Edit mode thumbnails and the preview scrubber. Download a Windows build from ffmpeg.org, unzip it, point this at `ffmpeg.exe`. |
 | Card size | 1.0 is about 240 px wide at 100% scaling. |
@@ -120,7 +120,7 @@ Keys (only while the Cuepoint Deck window has focus; nothing is global because R
 | Esc | Clear the queue and the loop |
 | L | Loop the live segment on / off |
 | Left / Right | Select previous / next song in the setlist strip |
-| Enter | Launch the selected setlist song (only with "Launch songs from setlist" on); a double-click on the song does the same |
+| Enter | Bring up the selected setlist song (triggers its column in Resolume); a click on the song does the same |
 | E | Edit mode for the current song |
 
 ### Edit mode
@@ -128,7 +128,8 @@ Keys (only while the Cuepoint Deck window has focus; nothing is global because R
 Edit mode never sends anything to Resolume, so it is safe during a service.
 
 - **New song from composition…** lists the clips on the song layer that have a media file (other layers hold the
-  same media as overlays and triggers, so they are not offered); **New song from a file…** browses.
+  same media as overlays and triggers, so they are not offered). The new song takes the column's name as its title;
+  **New song from a file…** browses.
   The title defaults to the clip name; the duration comes from Resolume, or from ffprobe.
 - **Mark at Resolume playhead (M)**: with the clip playing in Resolume, press M at each section.
 - **Suggest segments**: analyses the song on this PC (no internet, no outside service) and adds draft segments.
@@ -162,7 +163,8 @@ Edit mode never sends anything to Resolume, so it is safe during a service.
 
 ### Setlists
 
-The top bar's dropdown lists the saved setlists; the first one is active until you pick another, and the choice is
+Clicking a song in the top bar triggers its **column** in Resolume, so backgrounds, overlays and the song clip all
+change together, and the cards follow the newly live clip. The top bar's dropdown lists the saved setlists; the first one is active until you pick another, and the choice is
 remembered per PC. A clip that is live in Resolume but not in the library still shows in the header with an
 **Add to library** button.
 
@@ -252,9 +254,11 @@ Everything below was only checked on a development PC with Arena on the same mac
 2. **Eyes on the projector** for the launch orders: launch a song at a mid-song segment with "Launch songs
    from setlist" on, once with the clip's retrigger set to Continue and once with Restart. There should be no
    flash of the clip's first frame.
-3. **Loop**: loop a chorus and watch several repeats land on the beat; then Queue a bridge during the loop and
+3. **Setlist click**: click a song in the top bar and confirm the whole column comes up in Resolume (all layers), and
+   the cards switch to it.
+4. **Loop**: loop a chorus and watch several repeats land on the beat; then Queue a bridge during the loop and
    confirm the queue wins at the boundary and the loop stays idle afterwards.
-4. **Queue timing**: queue a chorus during a verse, locally and remotely, and tune the latency offset per host
+5. **Queue timing**: queue a chorus during a verse, locally and remotely, and tune the latency offset per host
    until the jump lands within a frame or two of the boundary.
 4. **Resilience**: kill and restart Resolume with the app connected; unplug the operator PC's network for
    30 s. Both should recover without touching the app.

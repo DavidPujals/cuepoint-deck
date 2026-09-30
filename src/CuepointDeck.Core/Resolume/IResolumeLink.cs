@@ -14,5 +14,7 @@ public interface IResolumeLink
 
     Task SetPositionMsAsync(ClipInfo clip, double ms);
     Task ConnectClipAsync(ClipInfo clip);
+    /// <summary>Trigger a whole column: every layer's clip in it connects, which is how a song's column is brought up.</summary>
+    Task ConnectColumnAsync(int column);
     Task<int> SetInPointMsAsync(ClipInfo clip, double ms);
 }

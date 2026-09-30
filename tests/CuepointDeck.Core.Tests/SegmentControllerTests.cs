@@ -15,6 +15,7 @@ public sealed class FakeLink : IResolumeLink
     public ClipInfo? WatchedClip { get; set; }
     public List<(ClipInfo Clip, double Ms)> Seeks { get; } = new();
     public List<ClipInfo> Connects { get; } = new();
+    public List<int> Columns { get; } = new();
     public List<(ClipInfo Clip, double Ms)> InPoints { get; } = new();
     public List<string> Order { get; } = new();
 
@@ -25,6 +26,7 @@ public sealed class FakeLink : IResolumeLink
 
     public Task SetPositionMsAsync(ClipInfo clip, double ms) { lock (Seeks) { Seeks.Add((clip, ms)); Order.Add($"seek {ms}"); } return Task.CompletedTask; }
     public Task ConnectClipAsync(ClipInfo clip) { lock (Seeks) { Connects.Add(clip); Order.Add("connect"); } return Task.CompletedTask; }
+    public Task ConnectColumnAsync(int column) { lock (Seeks) { Columns.Add(column); Order.Add($"column {column}"); } return Task.CompletedTask; }
     public Task<int> SetInPointMsAsync(ClipInfo clip, double ms) { lock (Seeks) { InPoints.Add((clip, ms)); Order.Add($"in {ms}"); } return Task.FromResult(204); }
 
     public void Feed(ClipInfo clip, double ms) => PositionUpdated?.Invoke(new PositionUpdate { Clip = clip, PositionMs = ms, Raw = ms, Timestamp = Stopwatch.GetTimestamp() });
@@ -252,11 +254,23 @@ public class SegmentControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task Launch_from_the_start_only_connects()
+    public async Task Launching_a_song_triggers_its_column_and_clears_queue_and_loop()
+    {
+        _clip.ConnectedState = "Disconnected";
+        await _ctl.QueueAsync(_song, _song.Segments[2]);   // clip not live + launching off: rejected, nothing queued
+        _settings.LaunchSongsFromSetlist = false;
+        await _ctl.LaunchSongAsync(_song);                  // a setlist click always brings the column up
+        Assert.Equal(new[] { "column 1" }, _link.Order);
+        Assert.Null(_ctl.Queued);
+        Assert.Equal(-1, _ctl.LoopIndex);
+    }
+
+    [Fact]
+    public async Task Launching_at_a_segment_from_the_start_only_connects_the_clip()
     {
         _clip.ConnectedState = "Disconnected";
         _settings.LaunchSongsFromSetlist = true;
-        await _ctl.LaunchSongAsync(_song);
+        await _ctl.LaunchAtAsync(_song, 0, null);
         Assert.Equal(new[] { "connect" }, _link.Order);
     }
 
