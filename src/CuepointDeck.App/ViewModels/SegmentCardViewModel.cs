@@ -23,6 +23,9 @@ public partial class SegmentCardViewModel : ObservableObject
     public string RangeText => Segment.EndMs is long e ? $"{StartText} → {Timecode.Format(e, Song.Fps)}" : StartText;
     public BitmapImage? Thumb { get; }
     public bool HasThumb => Thumb is not null;
+    /// <summary>Keys shown beside the card's menu items, e.g. "3" and "Shift+3", following the default trigger setting.</summary>
+    public string CutGesture { get; init; } = "";
+    public string QueueGesture { get; init; } = "";
 
     [ObservableProperty] private double _progress;
     [ObservableProperty] private bool _isLive;
@@ -46,4 +49,5 @@ public partial class SegmentCardViewModel : ObservableObject
     [RelayCommand] private Task Cut() => _owner.FireAsync(this, Core.Settings.TriggerMode.Cut);
     [RelayCommand] private Task Queue() => _owner.FireAsync(this, Core.Settings.TriggerMode.Queue);
     [RelayCommand] private void ToggleLoop() => _owner.ToggleLoop(this);
+    [RelayCommand] private void Edit() => _owner.EditSegment(this);
 }

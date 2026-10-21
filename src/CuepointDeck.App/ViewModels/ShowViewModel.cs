@@ -48,6 +48,8 @@ public partial class ShowViewModel : ObservableObject
     [ObservableProperty] private string _songSubtitle = "";
     [ObservableProperty] private bool _isUnknownClip;
     [ObservableProperty] private string _unknownClipName = "";
+    [ObservableProperty] private string _emptyTitle = "No Song Live";
+    [ObservableProperty] private string _emptyMessage = "";
     [ObservableProperty] private double _clipProgress;
     [ObservableProperty] private string _elapsedText = "--:--";
     [ObservableProperty] private string _remainingText = "--:--";
@@ -61,7 +63,6 @@ public partial class ShowViewModel : ObservableObject
     [ObservableProperty] private bool _canFire;
     [ObservableProperty] private string _cannotFireReason = "";
     [ObservableProperty] private double _cardScale = 1.0;
-    [ObservableProperty] private string _defaultTriggerHint = "";
 
     // ---- setlist strip
     /// <summary>Dropdown entry that builds the running order live from Resolume's columns on the song layer.</summary>
@@ -104,28 +105,55 @@ public partial class ShowViewModel : ObservableObject
         ctl.QueueChanged += () => Post(RefreshQueue);
         ctl.LoopChanged += () => Post(RefreshLoop);
         ctl.Rejected += r => Post(() => OnRejected(r));
-        ctl.Fired += (s, k) => Post(() => _shell.Flash($"{k}: {s.Name}", transient: true));
+        ctl.Fired += (s, k) => Post(() => { if (k != TriggerKind.Loop) _shell.ShowToast(k switch { TriggerKind.Cut => $"Jumped to {s.Name}", TriggerKind.Queue => $"Jumped to {s.Name} at the boundary", _ => $"Brought up at {s.Name}" }); });
     }
 
     private void Post(Action a) => _dispatcher.BeginInvoke(a);
 
     private void ApplySettings()
     {
-        CardScale = Math.Clamp(_services.Settings.CardScale, 0.6, 2.0);
-        DefaultTriggerHint = _services.Settings.DefaultTrigger == TriggerMode.Queue
-            ? "Click or number key = Queue · Shift = Cut · Right-click for both · ↻ or L loops a segment · Esc clears queue and loop"
-            : "Click or number key = Cut · Shift = Queue · Right-click for both · ↻ or L loops a segment · Esc clears queue and loop";
+        var scale = Math.Clamp(_services.Settings.CardScale, 0.6, 2.0);
+        var rebuild = Math.Abs(scale - CardScale) > 0.001 || _gestureMode != _services.Settings.DefaultTrigger;
+        CardScale = scale;
+        _gestureMode = _services.Settings.DefaultTrigger;
+        if (rebuild && _song is not null) BuildSong(_song, _services.Connection.WatchedClip);
         RefreshLive();
         RefreshSetlists();
     }
 
     // ------------------------------------------------------------------ live state
 
+    private TriggerMode _gestureMode = TriggerMode.Queue;
+
+    // Test aid (DebugCapture only): show a library song as if it were live, so the deck can be captured without Resolume.
+    private Song? _captureSong;
+    private double? _capturePos;
+    internal void SimulateLiveForCapture(Song song, double positionMs, int queuedIndex, int loopIndex)
+    {
+        _captureSong = song;
+        _capturePos = positionMs;
+        BuildSong(song, null);
+        RefreshLive();
+        SongSubtitle = $"L{_services.Settings.SongLayer} C1  ·  {song.Segments.Count} segments  ·  {Timecode.Format(song.DurationMs, song.Fps)}";
+        if (queuedIndex >= 0 && queuedIndex < Cards.Count) { Cards[queuedIndex].IsQueued = true; Cards[queuedIndex].QueueText = "QUEUED · 4.2 s"; }
+        if (loopIndex >= 0 && loopIndex < Cards.Count) Cards[loopIndex].IsLooping = true;
+    }
+
+    /// <summary>Ctrl+ / Ctrl- / Ctrl+0 from the keyboard: bigger, smaller, or back to 1.0. Saved like any setting.</summary>
+    public void Zoom(double delta)
+    {
+        var s = _services.Settings.Clone();
+        s.CardScale = delta == 0 ? 1.0 : Math.Round(Math.Clamp(s.CardScale + delta, 0.6, 2.0), 1);
+        if (Math.Abs(s.CardScale - _services.Settings.CardScale) < 0.001) return;
+        _ = _services.ApplySettingsAsync(s);
+        _shell.ShowToast($"Card size {s.CardScale:0.0}×");
+    }
+
     private void RefreshLive()
     {
         var conn = _services.Connection;
         var clip = conn.WatchedClip;
-        var song = _services.CurrentSong;
+        var song = _captureSong ?? _services.CurrentSong;
 
         // Rebuild when the song changes, and also when the library handed us a fresh copy of the same song
         // (a rescan after an edit, or thumbnails rendered), so the cards pick up new thumbnails and notes.
@@ -133,12 +161,18 @@ public partial class ShowViewModel : ObservableObject
 
         IsUnknownClip = song is null && clip is not null && clip.IsConnected;
         UnknownClipName = clip?.Name ?? "";
+        var online = conn.State == ConnectionState.Connected;
+        EmptyTitle = !online ? "Resolume Isn't Connected" : IsUnknownClip ? "This Clip Isn't in the Library" : "No Song Live";
+        EmptyMessage = !online ? "Cuepoint Deck keeps trying every 2 seconds. Click the status at the top left for details."
+                     : IsUnknownClip ? $"{clip!.Location} is playing “{clip.Name}”. Add it to the library to give it segments."
+                     : SetlistSongs.Count > 0 ? "Click a song in the setlist above to bring it up in Resolume, or start one there."
+                     : "Start a song in Resolume, or make a setlist in Edit mode.";
 
         var readOnly = _services.Settings.Role == AppRole.Follow;
         var connected = conn.State == ConnectionState.Connected;
         var live = clip is { IsConnected: true } && song is not null;
         CanFire = !readOnly && connected && song is not null && (live || _services.Settings.LaunchSongsFromSetlist);
-        CannotFireReason = readOnly ? "FOLLOW: read-only" : !connected ? "Not connected to Resolume" : song is null ? "" : !live ? "Clip not live" : "";
+        CannotFireReason = readOnly ? "" : !connected ? "Not connected to Resolume" : song is null ? "" : !live ? "Clip not live in Resolume" : "";
         CanLaunch = !readOnly && connected && SelectedSetlistIndex >= 0;
 
         foreach (var item in SetlistSongs)
@@ -151,6 +185,13 @@ public partial class ShowViewModel : ObservableObject
         {
             var idx = SetlistSongs.ToList().FindIndex(i => i.IsCurrent);
             if (idx >= 0) SetSelected(idx);
+        }
+        if (_captureSong is not null)
+        {
+            CanFire = true;
+            CannotFireReason = "";
+            foreach (var item in SetlistSongs) item.IsAvailable = true;
+            return;
         }
         RefreshQueue();
         RefreshLoop();
@@ -184,7 +225,13 @@ public partial class ShowViewModel : ObservableObject
             var seg = song.Segments[i];
             var thumbPath = seg.Thumb is null ? null : lib.ResolveLibraryPath(seg.Thumb);
             var image = thumbPath is null ? null : ThumbCache.Get(thumbPath, (int)(480 * Math.Max(1, CardScale)));
-            Cards.Add(new SegmentCardViewModel(this, song, seg, i, image));
+            var key = i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "";
+            var cutFirst = _services.Settings.DefaultTrigger == TriggerMode.Cut;
+            Cards.Add(new SegmentCardViewModel(this, song, seg, i, image)
+            {
+                CutGesture = key.Length == 0 ? "" : cutFirst ? key : "Shift+" + key,
+                QueueGesture = key.Length == 0 ? "" : cutFirst ? "Shift+" + key : key,
+            });
         }
         var dur = Math.Max(1, (double)song.DurationMs);
         Ticks = song.Segments.Select(s => Math.Clamp(s.StartMs / dur, 0, 1)).ToList();
@@ -220,16 +267,21 @@ public partial class ShowViewModel : ObservableObject
 
     public void ToggleLoop(SegmentCardViewModel card)
     {
-        if (_services.Settings.Role == AppRole.Follow) { _shell.Flash("FOLLOW role: this instance cannot loop segments", transient: true); return; }
+        if (_services.Settings.Role == AppRole.Follow) { _shell.ShowToast("This PC follows, so it can't loop segments", warn: true); return; }
+        var wasLooping = _services.Controller.LoopIndex == card.Index;
         _services.Controller.ToggleLoop(card.Song, card.Segment);
+        if (_services.Controller.LoopIndex == card.Index) _shell.ShowToast($"Looping {card.Name}. Press L or Esc to stop.");
+        else if (wasLooping) _shell.ShowToast($"Stopped looping {card.Name}");
     }
+
+    public void EditSegment(SegmentCardViewModel card) => _shell.EnterEdit(card.Song, card.Segment.Id);
 
     /// <summary>30 Hz: progress bars, times, live/next highlights and the queue countdown.</summary>
     private void Tick()
     {
         var song = _song;
         if (song is null) return;
-        var est = _services.Estimator.EstimateMs();
+        var est = _capturePos ?? _services.Estimator.EstimateMs();
         if (est is not double pos)
         {
             ElapsedText = "--:--"; RemainingText = "--:--";
@@ -279,7 +331,7 @@ public partial class ShowViewModel : ObservableObject
 
     public async Task FireAsync(SegmentCardViewModel card, TriggerMode mode)
     {
-        if (_services.Settings.Role == AppRole.Follow) { _shell.Flash("FOLLOW role: this instance cannot fire segments", transient: true); return; }
+        if (_services.Settings.Role == AppRole.Follow) { _shell.ShowToast("This PC follows, so it can't fire segments", warn: true); return; }
         var ctl = _services.Controller;
         if (mode == TriggerMode.Cut) await ctl.CutAsync(card.Song, card.Segment);
         else await ctl.QueueAsync(card.Song, card.Segment);
@@ -320,9 +372,10 @@ public partial class ShowViewModel : ObservableObject
             if (n < Cards.Count) _ = FireDefaultAsync(Cards[n], shift);
             return true;
         }
+        var hadQueueOrLoop = _services.Controller.Queued is not null || _services.Controller.LoopIndex >= 0;
         switch (e.Key)
         {
-            case Key.Escape: _services.Controller.ClearQueue(); _services.Controller.ClearLoop(); return true;
+            case Key.Escape: _services.Controller.ClearQueue(); _services.Controller.ClearLoop(); if (hadQueueOrLoop) _shell.ShowToast("Queue and loop cleared"); return true;
             case Key.L: { var live = Cards.FirstOrDefault(c => c.IsLive); if (live is not null) ToggleLoop(live); return true; }
             case Key.Left: MoveSelection(-1); return true;
             case Key.Right: MoveSelection(1); return true;
@@ -414,14 +467,16 @@ public partial class ShowViewModel : ObservableObject
     public async Task LaunchItemAsync(SetlistSongItem item)
     {
         SelectSetlistSong(item);
-        if (_services.Settings.Role == AppRole.Follow) { _shell.Flash("FOLLOW role: this instance cannot launch songs", transient: true); return; }
-        if (_services.Connection.State != ConnectionState.Connected) { _shell.Flash("Not connected to Resolume", transient: true, warn: true); return; }
-        if (!item.IsAvailable) { _shell.Flash($"\"{item.Title}\" is not in the composition", transient: true, warn: true); return; }
+        if (_services.Settings.Role == AppRole.Follow) { _shell.ShowToast("This PC follows, so it can't bring up songs", warn: true); return; }
+        if (_services.Connection.State != ConnectionState.Connected) { _shell.ShowToast("Resolume isn't connected", warn: true); return; }
+        if (!item.IsAvailable) { _shell.ShowToast($"“{item.Title}” isn't in the Resolume composition", warn: true); return; }
         await LaunchSelectedAsync();
+        _shell.ShowToast($"Bringing up {item.Title}");
     }
 
-    [RelayCommand]
-    private void ManageSetlists() => _shell.OpenSetlists();
+    [RelayCommand] private Task LaunchItem(SetlistSongItem? item) => item is null ? Task.CompletedTask : LaunchItemAsync(item);
+    [RelayCommand] private void EditSong(SetlistSongItem? item) { if (item?.Song is not null) _shell.EnterEdit(item.Song); }
+    [RelayCommand] private void EditSetlist() => _shell.EnterEditSetlist(ActiveSetlistName);
 
     [RelayCommand]
     private void AddUnknownClip()

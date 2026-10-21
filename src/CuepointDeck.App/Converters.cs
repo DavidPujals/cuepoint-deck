@@ -99,3 +99,41 @@ public sealed class AtLeastConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>Bool → !bool, both ways.</summary>
+public sealed class NotConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => !(value is bool b && b);
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => !(value is bool b && b);
+}
+
+/// <summary>True when the value's text equals ConverterParameter. Two-way for radio-style pane pickers: checking one
+/// writes the parameter back; unchecking writes nothing.</summary>
+public sealed class EqualsConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.OrdinalIgnoreCase);
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is true ? parameter : Binding.DoNothing;
+}
+
+/// <summary>True when two bound values have the same text (a colour swatch and the segment's colour).</summary>
+public sealed class SameTextMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        => values.Length == 2 && string.Equals(values[0]?.ToString(), values[1]?.ToString(), StringComparison.OrdinalIgnoreCase);
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>Visible when a count is above zero (Invert: when it is zero). Drives empty states and badges.</summary>
+public sealed class CountToVisibilityConverter : IValueConverter
+{
+    public bool Invert { get; set; }
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var any = value is int n && n > 0;
+        if (Invert) any = !any;
+        return any ? Visibility.Visible : Visibility.Collapsed;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

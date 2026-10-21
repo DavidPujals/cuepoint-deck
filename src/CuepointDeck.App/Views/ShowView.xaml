@@ -11,20 +11,30 @@
         <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
         <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:ScaleConverter x:Key="Scale"/>
-        <app:WidthBelowConverter x:Key="Wide" Invert="True"/>
         <app:ImageAspectConverter x:Key="Aspect"/>
 
-        <!-- one segment card -->
+        <!-- small dark capsules laid over a thumbnail -->
+        <Style x:Key="Overlay" TargetType="Border">
+            <Setter Property="Background" Value="#B3000000"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="Margin" Value="6"/>
+        </Style>
+
+        <!-- one segment card. Click fires it with the default trigger; Shift-click the other; right-click for the menu. -->
         <DataTemplate x:Key="CardTemplate" DataType="{x:Type vm:SegmentCardViewModel}">
-            <Border x:Name="Card" Margin="5" CornerRadius="9" BorderThickness="3" BorderBrush="{StaticResource LineBrush}"
+            <Border x:Name="Card" Margin="6" CornerRadius="12" BorderThickness="2" BorderBrush="{StaticResource SeparatorBrush}"
                     Background="{StaticResource PanelBrush}" Cursor="Hand"
                     Width="{Binding DataContext.CardScale, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Scale}, ConverterParameter=240}"
                     MouseLeftButtonUp="Card_MouseLeftButtonUp" ToolTip="{Binding RangeText}">
                 <Border.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="Cut (jump now)" Command="{Binding CutCommand}"/>
-                        <MenuItem Header="Queue (at end of current segment)" Command="{Binding QueueCommand}"/>
-                        <MenuItem Header="Loop (repeat at its end until turned off)" Command="{Binding ToggleLoopCommand}"/>
+                        <MenuItem Header="Jump Now" InputGestureText="{Binding CutGesture}" Command="{Binding CutCommand}"/>
+                        <MenuItem Header="Jump at End of Current Segment" InputGestureText="{Binding QueueGesture}" Command="{Binding QueueCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Loop This Segment" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Edit Segment" Command="{Binding EditCommand}"/>
                     </ContextMenu>
                 </Border.ContextMenu>
                 <Grid>
@@ -35,57 +45,59 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <!-- thumbnail or placeholder -->
-                    <!-- the box keeps the clip's own width:height ratio, so the whole frame shows with no crop or bars -->
+                    <!-- thumbnail at the clip's own shape, or the segment colour with its name -->
                     <ctl:AspectBox Grid.Row="0" Ratio="{Binding Thumb, Converter={StaticResource Aspect}}" ClipToBounds="True">
-                    <Grid>
-                        <Border Background="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.55}" CornerRadius="6,6,0,0">
-                            <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="10" Opacity="0.9"/>
-                        </Border>
-                        <Border CornerRadius="6,6,0,0" Visibility="{Binding HasThumb, Converter={StaticResource Vis}}">
-                            <Border.Background>
-                                <ImageBrush ImageSource="{Binding Thumb}" Stretch="Uniform"/>
-                            </Border.Background>
-                        </Border>
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6" Background="#CC000000" CornerRadius="5" Padding="7,1" Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
-                            <TextBlock Text="{Binding NumberLabel}" FontSize="15" FontWeight="Bold" Foreground="White"/>
-                        </Border>
-                        <Border HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6,6,34,6" Background="#DD000000" CornerRadius="5" Padding="7,2" Visibility="{Binding IsQueued, Converter={StaticResource Vis}}">
-                            <TextBlock Text="{Binding QueueText}" FontSize="13" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
-                        </Border>
-                        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1" Visibility="{Binding IsNext, Converter={StaticResource Vis}}">
-                            <TextBlock Text="next" FontSize="11" Foreground="{StaticResource MutedBrush}"/>
-                        </Border>
-                        <!-- loop: repeats this segment at its end until turned off; lit when set -->
-                        <ToggleButton HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Width="24" Height="22" Padding="0" FontSize="14"
-                                      Style="{StaticResource LoopButton}" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"
-                                      Content="↻" ToolTip="Loop this segment: at its end, jump back to its start (L for the live segment, Esc clears)"/>
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="6" Background="#99000000" CornerRadius="4" Padding="6,1">
-                            <TextBlock Text="{Binding StartText}" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource MutedBrush}"/>
-                        </Border>
-                    </Grid>
+                        <Grid>
+                            <Border Background="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.5}" CornerRadius="10,10,0,0">
+                                <TextBlock Text="{Binding Name}" FontFamily="{StaticResource DisplayFont}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="10" Opacity="0.9"/>
+                            </Border>
+                            <Border CornerRadius="10,10,0,0" Visibility="{Binding HasThumb, Converter={StaticResource Vis}}">
+                                <Border.Background>
+                                    <ImageBrush ImageSource="{Binding Thumb}" Stretch="Uniform"/>
+                                </Border.Background>
+                            </Border>
+                            <Border Style="{StaticResource Overlay}" HorizontalAlignment="Left" VerticalAlignment="Top" Padding="8,1" Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
+                                <TextBlock Text="{Binding NumberLabel}" FontSize="15" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <Border Style="{StaticResource Overlay}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6,6,36,6" Padding="8,2" Background="#E6000000" Visibility="{Binding IsQueued, Converter={StaticResource Vis}}">
+                                <TextBlock Text="{Binding QueueText}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource WarnBrush}" Typography.NumeralAlignment="Tabular"/>
+                            </Border>
+                            <Border Style="{StaticResource Overlay}" HorizontalAlignment="Right" VerticalAlignment="Bottom" Visibility="{Binding IsNext, Converter={StaticResource Vis}}">
+                                <TextBlock Text="Next" FontSize="11" Foreground="#C8CED6"/>
+                            </Border>
+                            <!-- loop: repeats this segment at its end until turned off; tinted when on -->
+                            <ToggleButton HorizontalAlignment="Right" VerticalAlignment="Top" Margin="6" Width="26" Height="24" FontSize="13"
+                                          Style="{StaticResource LoopButton}" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"
+                                          Content="&#xE8EE;" ToolTip="Loop: at its end, go back to its start. L loops the live segment; Esc stops."/>
+                            <Border Style="{StaticResource Overlay}" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                <TextBlock Text="{Binding StartText}" FontSize="11" Foreground="#C8CED6" Typography.NumeralAlignment="Tabular"/>
+                            </Border>
+                        </Grid>
                     </ctl:AspectBox>
 
-                    <DockPanel Grid.Row="1" Margin="0,6,0,0">
-                        <Rectangle DockPanel.Dock="Left" Width="6" Margin="8,0,0,0" RadiusX="2" RadiusY="2" Fill="{Binding ColorHex, Converter={StaticResource Hex}}"/>
-                        <TextBlock Text="{Binding Name}" FontSize="19" FontWeight="SemiBold" Margin="8,0,8,0" TextTrimming="CharacterEllipsis"/>
+                    <DockPanel Grid.Row="1" Margin="0,8,0,0">
+                        <Rectangle DockPanel.Dock="Left" Width="5" Margin="10,1,0,1" RadiusX="2.5" RadiusY="2.5" Fill="{Binding ColorHex, Converter={StaticResource Hex}}"/>
+                        <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" Margin="9,0,10,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
-                    <TextBlock Grid.Row="2" Text="{Binding Lyric}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="22,2,8,6" TextTrimming="CharacterEllipsis" MaxHeight="36" TextWrapping="Wrap"/>
-                    <ProgressBar Grid.Row="3" Height="5" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" Margin="8,0,8,7"
-                                 Background="#11151A" BorderThickness="0" Foreground="{Binding ColorHex, Converter={StaticResource Hex}}"/>
+                    <TextBlock Grid.Row="2" Text="{Binding Lyric}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="24,2,10,8" TextTrimming="CharacterEllipsis" MaxHeight="36" TextWrapping="Wrap"/>
+                    <ProgressBar Grid.Row="3" Height="4" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" Margin="10,0,10,9"
+                                 Background="#0F1215" BorderThickness="0" Foreground="{Binding ColorHex, Converter={StaticResource Hex}}"/>
                 </Grid>
             </Border>
             <DataTemplate.Triggers>
+                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="#3A424D"/>
+                </Trigger>
                 <DataTrigger Binding="{Binding IsLive}" Value="True">
                     <Setter TargetName="Card" Property="BorderBrush" Value="{Binding ColorHex, Converter={StaticResource Hex}}"/>
-                    <Setter TargetName="Card" Property="Background" Value="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.22}"/>
+                    <Setter TargetName="Card" Property="Background" Value="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.2}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsQueued}" Value="True">
                     <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource WarnBrush}"/>
                     <DataTrigger.EnterActions>
                         <BeginStoryboard x:Name="Pulse">
                             <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="BorderBrush.Opacity" From="1" To="0.25" Duration="0:0:0.6"/>
+                                <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="BorderBrush.Opacity" From="1" To="0.3" Duration="0:0:0.6"/>
                             </Storyboard>
                         </BeginStoryboard>
                     </DataTrigger.EnterActions>
@@ -95,10 +107,10 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsFlashing}" Value="True">
                     <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
-                    <Setter TargetName="Card" Property="Background" Value="#55FF453A"/>
+                    <Setter TargetName="Card" Property="Background" Value="#4DFF453A"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding DataContext.CanFire, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False">
-                    <Setter TargetName="Card" Property="Opacity" Value="0.45"/>
+                    <Setter TargetName="Card" Property="Opacity" Value="0.5"/>
                     <Setter TargetName="Card" Property="Cursor" Value="Arrow"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
@@ -111,53 +123,56 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ===== current song ===== -->
-        <Border Grid.Row="0" Style="{StaticResource Panel}">
+        <!-- ===== the live song ===== -->
+        <Border Grid.Row="0" Style="{StaticResource InsetGroup}" Padding="18,14,18,14" Margin="0,0,0,8" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Add to library" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12"
-                                Command="{Binding AddUnknownClipCommand}" Visibility="{Binding IsUnknownClip, Converter={StaticResource Vis}}"/>
-                        <TextBlock Text="{Binding SongTitle}" FontSize="26" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
-                    </DockPanel>
-                    <TextBlock Text="{Binding SongSubtitle}" Foreground="{StaticResource MutedBrush}" FontSize="12" TextTrimming="CharacterEllipsis"/>
-                    <Grid Margin="0,8,0,2">
+                    <TextBlock Text="{Binding SongTitle}" Style="{StaticResource LargeTitleText}"/>
+                    <TextBlock Text="{Binding SongSubtitle}" Style="{StaticResource CaptionText}" FontSize="12" Margin="0,2,0,0"/>
+                    <Grid Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding ElapsedText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                        <ctl:SegmentProgressBar Grid.Column="1" Height="14" VerticalAlignment="Center" Progress="{Binding ClipProgress}" Ticks="{Binding Ticks}" TickColors="{Binding TickColors}" Gaps="{Binding Gaps}" Fill="{Binding ProgressFill}"/>
-                        <TextBlock Grid.Column="2" Text="{Binding RemainingText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
+                        <TextBlock Grid.Column="0" Text="{Binding ElapsedText}" Style="{StaticResource TimecodeText}" FontSize="22" Margin="0,0,14,0" VerticalAlignment="Center"/>
+                        <ctl:SegmentProgressBar Grid.Column="1" Height="12" VerticalAlignment="Center" Progress="{Binding ClipProgress}" Ticks="{Binding Ticks}" TickColors="{Binding TickColors}" Gaps="{Binding Gaps}" Fill="{Binding ProgressFill}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding RemainingText}" Style="{StaticResource TimecodeText}" FontSize="22" Margin="14,0,0,0" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
                     </Grid>
                 </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="14,0,0,0" HorizontalAlignment="Right" MaxWidth="440">
-                    <TextBlock Text="{Binding CannotFireReason}" Foreground="{StaticResource WarnBrush}" FontWeight="Bold" FontSize="14" HorizontalAlignment="Right" TextWrapping="Wrap" TextAlignment="Right" Visibility="{Binding CannotFireReason, Converter={StaticResource NotNullVis}}"/>
-                    <TextBlock Text="{Binding DefaultTriggerHint}" Foreground="{StaticResource MutedBrush}" FontSize="11" HorizontalAlignment="Right" Margin="0,4,0,0" TextWrapping="Wrap" TextAlignment="Right"
-                               Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1000}"/>
-                </StackPanel>
+                <!-- why cards can't fire right now: one calm status capsule instead of shouting text -->
+                <Border Grid.Column="1" Style="{StaticResource Badge}" Background="#3A2A10" VerticalAlignment="Top" Margin="16,4,0,0" Padding="10,4"
+                        Visibility="{Binding CannotFireReason, Converter={StaticResource NotNullVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7BA;" Style="{StaticResource SymbolText}" FontSize="12" Foreground="{StaticResource WarnBrush}"/>
+                        <TextBlock Text="{Binding CannotFireReason}" Foreground="{StaticResource WarnBrush}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0"/>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
         <!-- ===== cards ===== -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False">
-            <Grid>
-                <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource CardTemplate}" Focusable="False">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal"/>
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                </ItemsControl>
-                <TextBlock Text="No segments to show. Pick a song in Resolume, or press E to build one in Edit mode."
-                           Foreground="{StaticResource MutedBrush}" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40"
-                           Visibility="{Binding HasSong, Converter={StaticResource VisInv}}"/>
-            </Grid>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
+            <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource CardTemplate}" Focusable="False" Margin="-6,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
         </ScrollViewer>
+
+        <!-- ===== nothing to show: say why, and what to do ===== -->
+        <StackPanel Grid.Row="0" Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="460" Visibility="{Binding HasSong, Converter={StaticResource VisInv}}">
+            <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolText}" FontSize="44" Foreground="{StaticResource TertiaryBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding EmptyTitle}" Style="{StaticResource TitleText}" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+            <TextBlock Text="{Binding EmptyMessage}" Style="{StaticResource SecondaryText}" FontSize="13" TextAlignment="Center" Margin="0,6,0,0"/>
+            <Button Content="Add to Library…" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Margin="0,16,0,0"
+                    Command="{Binding AddUnknownClipCommand}" Visibility="{Binding IsUnknownClip, Converter={StaticResource Vis}}"/>
+        </StackPanel>
     </Grid>
 </UserControl>

@@ -11,6 +11,9 @@ public partial class App : Application
 {
     public static AppServices Services { get; private set; } = null!;
 
+    /// <summary>Set when the app restarts itself after an update, so the quit question is not asked.</summary>
+    public static bool SkipQuitConfirmation { get; set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -40,7 +43,7 @@ public partial class App : Application
         ApplyDebugScreenshotSize(window);
         MainWindow = window;
         window.Show();
-        ArmDebugScreenshot(window);
+        DebugCapture.Arm(window);
         ArmDebugOcr();
         ArmDebugUpdateTest();
     }
@@ -109,48 +112,6 @@ public partial class App : Application
         window.Left = -w - 200; window.Top = 0;
         window.Width = w; window.Height = h;
         window.ShowActivated = false;
-    }
-
-    /// <summary>Test aid: CUEPOINTDECK_SCREENSHOT=<png path> saves the window after a few seconds
-    /// (CUEPOINTDECK_SCREENSHOT_MODE=edit switches to Edit mode first). Harmless when unset.</summary>
-    private static void ArmDebugScreenshot(MainWindow window)
-    {
-        var path = Environment.GetEnvironmentVariable("CUEPOINTDECK_SCREENSHOT");
-        if (string.IsNullOrWhiteSpace(path)) return;
-        var delay = int.TryParse(Environment.GetEnvironmentVariable("CUEPOINTDECK_SCREENSHOT_DELAY"), out var d) ? d : 8;
-        var mode = Environment.GetEnvironmentVariable("CUEPOINTDECK_SCREENSHOT_MODE");
-        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(delay) };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-            try
-            {
-                if (string.Equals(mode, "edit", StringComparison.OrdinalIgnoreCase) && window.DataContext is ViewModels.ShellViewModel shell)
-                {
-                    shell.EnterEdit(Services.CurrentSong ?? Services.Library.Songs.FirstOrDefault());
-                    window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () => { Thread.Sleep(1500); Save(window, path); });
-                    return;
-                }
-                Save(window, path);
-            }
-            catch (Exception ex) { Log.Error("Screenshot", ex); }
-        };
-        timer.Start();
-
-        static void Save(Window w, string file)
-        {
-            var dpi = VisualTreeHelper.GetDpi(w);
-            var width = (int)(w.ActualWidth * dpi.DpiScaleX);
-            var height = (int)(w.ActualHeight * dpi.DpiScaleY);
-            var rtb = new RenderTargetBitmap(width, height, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
-            rtb.Render(w);
-            var enc = new PngBitmapEncoder();
-            enc.Frames.Add(BitmapFrame.Create(rtb));
-            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            using var fs = File.Create(file);
-            enc.Save(fs);
-            Log.Info($"Screenshot saved to {file}");
-        }
     }
 
     protected override void OnExit(ExitEventArgs e)

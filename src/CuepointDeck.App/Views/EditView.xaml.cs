@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using CuepointDeck.App.ViewModels;
 using CuepointDeck.Core.Logging;
@@ -121,6 +122,52 @@ public partial class EditView : UserControl
 
     private void StepBack_Click(object sender, RoutedEventArgs e) => _vm?.ScrubStep(-1, (Keyboard.Modifiers & ModifierKeys.Shift) != 0);
     private void StepForward_Click(object sender, RoutedEventArgs e) => _vm?.ScrubStep(1, (Keyboard.Modifiers & ModifierKeys.Shift) != 0);
+
+    // ------------------------------------------------------------------ setlist editor: drag to reorder, double-click to add
+
+    private Point _dragStart;
+    private SetlistEntry? _dragging;
+    private SetlistsViewModel? Setlists => _vm?.Setlists;
+
+    private void Source_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject d && ItemAt<SourceItem>(d) is { } source) Setlists?.AddSongCommand.Execute(source);
+    }
+
+    private void EntryList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _dragStart = e.GetPosition(null);
+        _dragging = e.OriginalSource is DependencyObject d ? ItemAt<SetlistEntry>(d) : null;
+    }
+
+    private void EntryList_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_dragging is null || e.LeftButton != MouseButtonState.Pressed) return;
+        var diff = e.GetPosition(null) - _dragStart;
+        if (Math.Abs(diff.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(diff.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        var item = _dragging;
+        _dragging = null;
+        DragDrop.DoDragDrop(EntryList, item, DragDropEffects.Move);
+    }
+
+    private void EntryList_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(SetlistEntry)) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void EntryList_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(SetlistEntry)) is not SetlistEntry entry) return;
+        var target = e.OriginalSource is DependencyObject d ? ItemAt<SetlistEntry>(d) : null;
+        Setlists?.MoveEntry(entry, target);
+    }
+
+    private static T? ItemAt<T>(DependencyObject? d) where T : class
+    {
+        while (d is not null and not ListBoxItem) d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d);
+        return (d as ListBoxItem)?.DataContext as T;
+    }
 
     private void Frame_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

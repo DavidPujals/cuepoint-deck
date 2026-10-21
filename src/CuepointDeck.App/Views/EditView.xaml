@@ -4,287 +4,603 @@
              xmlns:app="clr-namespace:CuepointDeck.App"
              xmlns:ctl="clr-namespace:CuepointDeck.App.Controls"
              xmlns:vm="clr-namespace:CuepointDeck.App.ViewModels"
-             Focusable="False">
+             x:Name="Root" Focusable="False">
     <UserControl.Resources>
         <app:HexToBrushConverter x:Key="Hex"/>
         <app:BoolToVisibilityConverter x:Key="Vis"/>
         <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
         <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:NullToVisibilityConverter x:Key="NullVis" Invert="True"/>
+        <app:CountToVisibilityConverter x:Key="AnyVis"/>
+        <app:CountToVisibilityConverter x:Key="NoneVis" Invert="True"/>
         <app:ImageAspectConverter x:Key="Aspect"/>
         <app:AtLeastConverter x:Key="AtLeast"/>
-        <Style x:Key="SmallButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="MinHeight" Value="28"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="8,2"/>
-        </Style>
+        <app:SameTextMultiConverter x:Key="SameText"/>
+
         <Style x:Key="TimeBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-            <Setter Property="FontFamily" Value="Consolas"/>
-            <Setter Property="FontSize" Value="15"/>
-            <Setter Property="Width" Value="118"/>
+            <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="116"/>
+            <Setter Property="app:Ui.CommitOnEnter" Value="True"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,12,0"/>
+        </Style>
+        <!-- the bar under a list: + − (and reorder) like a Mac list -->
+        <Style x:Key="ListBar" TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style x:Key="BarGlyph" TargetType="Button" BasedOn="{StaticResource GlyphButton}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Margin" Value="0,0,2,0"/>
         </Style>
     </UserControl.Resources>
 
-    <!-- The page is exactly the size of the window's content area, so the segment list and filmstrip scroll inside
-         their own panels. Only below about 1360x720 of content does the whole page scroll, rather than crushing the panels. -->
+    <!-- The page fills the window, so lists and the filmstrip scroll inside their own panels. Only below about 1360x720
+         of content does the whole page scroll, rather than crushing the panels. -->
     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False">
     <Grid Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=1360}"
           Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=720}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="250"/>
-            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="248"/>
+            <ColumnDefinition Width="12"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="10"/>
-            <ColumnDefinition Width="420"/>
         </Grid.ColumnDefinitions>
 
-        <!-- ===== left: songs ===== -->
-        <Border Grid.Column="0" Style="{StaticResource Panel}" Margin="0">
+        <!-- ================================================================== sidebar: songs and setlists -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1" CornerRadius="10">
             <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="EDIT MODE — never sends to Resolume"/>
-                <StackPanel DockPanel.Dock="Top">
-                    <Button Content="New song from composition…" Command="{Binding NewFromCompositionCommand}" Margin="0,0,0,4" MinHeight="30" FontSize="12"/>
-                    <Button Content="New song from a file…" Command="{Binding NewFromFileCommand}" Margin="0,0,0,4" MinHeight="30" FontSize="12"/>
-                    <Button Content="Setlists…" Command="{Binding OpenSetlistsCommand}" Margin="0,0,0,8" MinHeight="30" FontSize="12"
-                            ToolTip="Create, rename and order the setlists shown in the top bar in Show mode"/>
-                </StackPanel>
-                <Button DockPanel.Dock="Bottom" Content="Open library folder" Style="{StaticResource SmallButton}" Margin="0,8,0,0" Command="{Binding OpenLibraryFolderCommand}"/>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Text="LIBRARY"/>
-                <ListBox ItemsSource="{Binding Songs}" SelectedItem="{Binding SelectedSongItem}">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="2">
-                                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" app:Ui.Placeholder="Search Songs" Margin="10,10,10,6"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+                <!-- bottom bar: + (new song or setlist) and ⋯ -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource ListBar}">
+                    <DockPanel>
+                        <Button x:Name="AddMenuButton" DockPanel.Dock="Left" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE710;" app:Ui.DropDownMenu="True" ToolTip="New song or setlist">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="New Song from Resolume…" Command="{Binding NewFromCompositionCommand}"/>
+                                    <MenuItem Header="New Song from File…" Command="{Binding NewFromFileCommand}"/>
+                                    <Separator/>
+                                    <MenuItem Header="New Setlist…" Command="{Binding NewSetlistCommand}"/>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                        <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE8B7;" ToolTip="Show the library folder in Explorer" Command="{Binding OpenLibraryFolderCommand}"/>
+                        <TextBlock Text="{Binding SongCount, StringFormat={}{0} songs}" Style="{StaticResource CaptionText}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    </DockPanel>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False" Padding="6,4,6,8">
+                    <StackPanel>
+                        <TextBlock Text="Songs" Style="{StaticResource SectionHeader}" Margin="6,6,0,4"/>
+                        <ListBox Style="{StaticResource SidebarList}" ItemsSource="{Binding Songs}" SelectedItem="{Binding SelectedSongItem}"
+                                 Tag="{Binding DataContext, ElementName=Root}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:SongListItem}">
+                                    <StackPanel Margin="2,0" Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                        <StackPanel.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Delete Song…" Style="{StaticResource DestructiveMenuItem}"
+                                                          Command="{Binding PlacementTarget.Tag.DeleteSongCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </StackPanel.ContextMenu>
+                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.7" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="8,2,8,0" TextWrapping="Wrap" Visibility="{Binding Songs.Count, Converter={StaticResource NoneVis}}"
+                                   Text="No songs here yet. Use + to add one from Resolume or a file."/>
+
+                        <TextBlock Text="Setlists" Style="{StaticResource SectionHeader}" Margin="6,18,0,4"/>
+                        <ListBox Style="{StaticResource SidebarList}" ItemsSource="{Binding Setlists.Names}" SelectedItem="{Binding SelectedSetlistName}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="2,1" Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                        <DockPanel.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Use in Show Mode" Command="{Binding PlacementTarget.Tag.UseSetlistInShowCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Rename…" Command="{Binding PlacementTarget.Tag.RenameSetlistCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                <MenuItem Header="Duplicate…" Command="{Binding PlacementTarget.Tag.DuplicateSetlistCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                <Separator/>
+                                                <MenuItem Header="Delete Setlist…" Style="{StaticResource DestructiveMenuItem}" Command="{Binding PlacementTarget.Tag.DeleteSetlistCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                            </ContextMenu>
+                                        </DockPanel.ContextMenu>
+                                        <TextBlock DockPanel.Dock="Left" Text="&#xE8FD;" Style="{StaticResource SymbolText}" FontSize="12" Opacity="0.75" Margin="0,0,8,0"/>
+                                        <Border x:Name="OnShow" DockPanel.Dock="Right" Style="{StaticResource Badge}" Padding="7,0" Background="#1D3326" Visibility="Collapsed">
+                                            <TextBlock Text="On Show" FontSize="10.5" Foreground="{StaticResource AccentBrush}"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding}" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                    </DockPanel>
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Value="True">
+                                            <DataTrigger.Binding>
+                                                <MultiBinding Converter="{StaticResource SameText}">
+                                                    <Binding/>
+                                                    <Binding Path="DataContext.Setlists.ActiveName" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                                </MultiBinding>
+                                            </DataTrigger.Binding>
+                                            <Setter TargetName="OnShow" Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Style="{StaticResource CaptionText}" Margin="8,2,8,0" TextWrapping="Wrap" Visibility="{Binding Setlists.Names.Count, Converter={StaticResource NoneVis}}"
+                                   Text="No setlists yet. Use + to make one."/>
+                    </StackPanel>
+                </ScrollViewer>
             </DockPanel>
         </Border>
 
-        <!-- ===== middle: song + segments ===== -->
-        <Grid Grid.Column="2" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+        <!-- ================================================================== nothing selected -->
+        <StackPanel Grid.Column="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440" Visibility="{Binding IsEmptyView, Converter={StaticResource Vis}}">
+            <TextBlock Text="&#xE70F;" Style="{StaticResource SymbolText}" FontSize="40" Foreground="{StaticResource TertiaryBrush}" HorizontalAlignment="Center"/>
+            <TextBlock Text="Choose a Song or a Setlist" Style="{StaticResource TitleText}" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+            <TextBlock Style="{StaticResource SecondaryText}" FontSize="13" TextAlignment="Center" Margin="0,6,0,0"
+                       Text="Pick one in the sidebar, or start a new song from a Resolume column or a media file. Nothing you do here is sent to Resolume."/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,18,0,0">
+                <Button Content="New Song from Resolume…" Style="{StaticResource PrimaryButton}" Command="{Binding NewFromCompositionCommand}"/>
+                <Button Content="New Song from File…" Margin="8,0,0,0" Command="{Binding NewFromFileCommand}"/>
+            </StackPanel>
+        </StackPanel>
 
-            <Border Grid.Row="0" Style="{StaticResource Panel}">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="200"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition/><RowDefinition/><RowDefinition/>
-                    </Grid.RowDefinitions>
-                    <Label Grid.Row="0" Content="Title"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Margin="0,2"/>
-                    <Label Grid.Row="0" Grid.Column="2" Content="Artist" Margin="12,0,0,0"/>
-                    <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
-                    <Label Grid.Row="1" Content="File"/>
-                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ClipFileText}" Foreground="{StaticResource MutedBrush}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                    <Label Grid.Row="2" Content="Status"/>
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ClipStatusText}" Foreground="{StaticResource MutedBrush}" FontSize="12" VerticalAlignment="Center"/>
-                    <Label Grid.Row="2" Grid.Column="2" Content="Duration" Margin="12,0,0,0"/>
-                    <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding DurationText}" FontFamily="Consolas" VerticalAlignment="Center"/>
-                </Grid>
-            </Border>
+        <!-- ================================================================== song editor -->
+        <Grid Grid.Column="2" Visibility="{Binding IsSongView, Converter={StaticResource Vis}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="400"/>
+            </Grid.ColumnDefinitions>
 
-            <Border Grid.Row="1" Style="{StaticResource Panel}">
-                <DockPanel>
-                    <DockPanel DockPanel.Dock="Top">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Button Content="Suggest" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,6,0" Command="{Binding SuggestSegmentsCommand}"
-                                    ToolTip="Analyses the audio and the video cuts on this PC, adds draft segments, and reads their lyric notes off the video. No internet, no outside service."/>
-                            <Button Content="Read lyrics" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,6,0" Command="{Binding ReadLyricsFromVideoCommand}"
-                                    ToolTip="Fills empty lyric notes with the on-screen text just after each segment starts, using the OCR built into Windows."/>
-                            <Button Content="Mark at playhead (M)" Style="{StaticResource PrimaryButton}" MinHeight="30" FontSize="12" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
-                            <Button Content="Mark at preview (⇧M)" Style="{StaticResource SmallButton}" MinHeight="30" Margin="6,0,0,0" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,10,0" Text="SEGMENTS" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding PlayheadText}" FontFamily="Consolas" FontSize="18" FontWeight="Bold" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding PlayheadHint}" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </DockPanel>
-                    <DockPanel DockPanel.Dock="Top" Margin="0,6,0,0" Visibility="{Binding SuggestStatus, Converter={StaticResource NotNullVis}}">
-                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Visibility="{Binding HasDrafts, Converter={StaticResource Vis}}">
-                            <Button Content="Keep drafts" Style="{StaticResource SmallButton}" Command="{Binding AcceptDraftsCommand}"/>
-                            <Button Content="Discard drafts" Style="{StaticResource DangerButton}" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding DiscardDraftsCommand}"/>
-                        </StackPanel>
-                        <TextBlock Text="{Binding SuggestStatus}" FontSize="12" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                    </DockPanel>
-                    <ListBox ItemsSource="{Binding Segments}" SelectedItem="{Binding SelectedSegment}" Margin="0,6,0,0"
-                             HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:SegmentEditItem}">
-                                <Grid Margin="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <!-- 16:9 gives 96x54; a wide canvas grows to 200 px across so it stays readable -->
-                                    <ctl:AspectBox Grid.Column="0" MaxHeight="54" MaxWidth="200" Ratio="{Binding Thumb, Converter={StaticResource Aspect}}" VerticalAlignment="Center">
-                                        <Grid>
-                                            <Border Background="{Binding Color, Converter={StaticResource Hex}, ConverterParameter=0.6}" CornerRadius="4"/>
-                                            <Image Source="{Binding Thumb}" Stretch="Uniform" Visibility="{Binding Thumb, Converter={StaticResource NotNullVis}}"/>
-                                        </Grid>
-                                    </ctl:AspectBox>
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <DockPanel>
-                                            <TextBlock DockPanel.Dock="Right" Text="{Binding RangeText}" FontFamily="Consolas" FontSize="13" Foreground="{StaticResource MutedBrush}"/>
-                                            <Rectangle DockPanel.Dock="Left" Width="5" Height="16" RadiusX="2" RadiusY="2" Fill="{Binding Color, Converter={StaticResource Hex}}" Margin="0,0,6,0"/>
-                                            <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"/>
-                                        </DockPanel>
-                                        <TextBlock Text="{Binding Lyric}" FontSize="12" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{Binding ThumbStatus}" FontSize="10" Foreground="{StaticResource WarnBrush}" Visibility="{Binding ThumbStatus, Converter={StaticResource NotNullVis}}"/>
-                                        <TextBlock Text="{Binding DraftText}" FontSize="10" FontStyle="Italic" Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsDraft, Converter={StaticResource Vis}}"/>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+            <DockPanel Grid.Column="0">
+                <!-- header: the title edits in place; Save is the one prominent action and only lights up when there is something to save -->
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,2,0,0">
+                        <TextBlock Text="{Binding SaveStatusText}" Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button Content="Save" Style="{StaticResource PrimaryButton}" MinWidth="84" IsEnabled="{Binding IsDirty}" Command="{Binding SaveCommand}" ToolTip="Save the song (Ctrl+S)"/>
+                        <Button x:Name="MoreMenuButton" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE712;" app:Ui.DropDownMenu="True" Margin="4,0,0,0" ToolTip="More">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Render Missing Thumbnails" Command="{Binding RenderThumbnailsCommand}"/>
+                                    <MenuItem Header="Show Library Folder" Command="{Binding OpenLibraryFolderCommand}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Delete Song…" Style="{StaticResource DestructiveMenuItem}" Command="{Binding DeleteSongCommand}" IsEnabled="{Binding CanDeleteSong}"/>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBox Style="{StaticResource InlineTextBox}" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource DisplayFont}" FontSize="24" FontWeight="SemiBold"
+                                 app:Ui.Placeholder="Song title" Margin="-4,0,0,0"/>
+                        <DockPanel Margin="0,2,0,0">
+                            <TextBox DockPanel.Dock="Left" Style="{StaticResource InlineTextBox}" Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" FontSize="13" Foreground="{StaticResource MutedBrush}"
+                                     app:Ui.Placeholder="Add an artist" MinWidth="120" Margin="-4,0,10,0"/>
+                            <TextBlock Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center" ToolTip="{Binding ClipFileText}">
+                                <Run Text="{Binding ClipStatusText, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding DurationText, Mode=OneWay}"/>
+                            </TextBlock>
+                        </DockPanel>
+                    </StackPanel>
                 </DockPanel>
-            </Border>
 
-            <!-- selected segment editor -->
-            <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0">
-                <StackPanel>
-                    <TextBlock Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="SELECTED SEGMENT"/>
-                    <Grid DataContext="{Binding SelectedSegment}" Visibility="{Binding Converter={StaticResource NotNullVis}}">
+                <!-- inspector for the selected segment -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource InsetGroup}" Padding="16,12" Margin="0,10,0,0" Visibility="{Binding SelectedSegment, Converter={StaticResource NotNullVis}}">
+                    <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="72"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Label Grid.Row="0" Content="Name"/>
-                        <DockPanel Grid.Row="0" Grid.Column="1" Margin="0,2">
-                            <TextBlock DockPanel.Dock="Right" Text="any name works, e.g. Bridge 2 or Big Chorus" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0"/>
-                            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" FontSize="15" ToolTip="Type any label. The buttons below are just quick picks."/>
-                        </DockPanel>
 
-                        <Label Grid.Row="1" Content="Start"/>
-                        <WrapPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                            <TextBox Style="{StaticResource TimeBox}" Text="{Binding StartText, UpdateSourceTrigger=LostFocus}" ToolTip="hh:mm:ss:ff at the clip's frame rate"/>
-                            <Button Content="−1 fr" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="-frame"/>
-                            <Button Content="+1 fr" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="+frame"/>
-                            <Button Content="−100 ms" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="-100"/>
-                            <Button Content="+100 ms" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding DataContext.NudgeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="+100"/>
-                            <Button Content="= playhead" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.SetStartFromPlayheadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" IsEnabled="{Binding DataContext.PlayheadAvailable, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                            <Button Content="= preview" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding DataContext.SetStartFromScrubberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                            <Button Content="Preview → here" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.SeekScrubberToSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                        </WrapPanel>
+                        <TextBlock Grid.Row="0" Text="Name" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox Grid.Row="0" Grid.Column="1" Style="{StaticResource EditableCombo}" Width="240" HorizontalAlignment="Left" Margin="0,0,0,8"
+                                  ItemsSource="{Binding QuickNamesList}" Text="{Binding SelectedSegment.Name, UpdateSourceTrigger=PropertyChanged}"
+                                  ToolTip="Type any name (Bridge 2, Big Chorus), or pick one of the usual ones from the list"/>
 
-                        <Label Grid.Row="2" Content="End"/>
-                        <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                            <TextBox Style="{StaticResource TimeBox}" Text="{Binding EndText, UpdateSourceTrigger=LostFocus}" ToolTip="Optional. Leave empty and the segment runs until the next one starts. Set it to leave a gap that belongs to no segment."/>
-                            <Button Content="−1 fr" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.NudgeEndCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="-frame" IsEnabled="{Binding HasEnd}"/>
-                            <Button Content="+1 fr" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding DataContext.NudgeEndCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="+frame" IsEnabled="{Binding HasEnd}"/>
-                            <Button Content="= playhead" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.SetEndFromPlayheadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" IsEnabled="{Binding DataContext.PlayheadAvailable, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                            <Button Content="= preview" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Command="{Binding DataContext.SetEndFromScrubberCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-                            <Button Content="Preview → end" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.SeekScrubberToEndCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" IsEnabled="{Binding HasEnd}"/>
-                            <Button Content="Clear end" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Command="{Binding DataContext.ClearEndCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" IsEnabled="{Binding HasEnd}"/>
-                            <TextBlock Text="runs until the next segment" FontSize="11" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="10,0,0,0" Visibility="{Binding HasEnd, Converter={StaticResource VisInv}}"/>
-                        </WrapPanel>
+                        <TextBlock Grid.Row="1" Text="Starts" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBox Style="{StaticResource TimeBox}" Text="{Binding SelectedSegment.StartText}" ToolTip="hh:mm:ss:ff at the clip's frame rate. Return to apply."/>
+                            <Button Style="{StaticResource GlyphButton}" Content="&#xE738;" Margin="6,0,0,0" Command="{Binding NudgeCommand}" CommandParameter="-frame" ToolTip="One frame earlier (Shift: five)"/>
+                            <Button Style="{StaticResource GlyphButton}" Content="&#xE710;" Margin="2,0,0,0" Command="{Binding NudgeCommand}" CommandParameter="+frame" ToolTip="One frame later (Shift: five)"/>
+                            <Button Content="Set Start" Margin="8,0,0,0" app:Ui.DropDownMenu="True" Padding="12,4">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="To Resolume's Playhead" Command="{Binding SetStartFromPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
+                                        <MenuItem Header="To the Preview Position" Command="{Binding SetStartFromScrubberCommand}"/>
+                                        <Separator/>
+                                        <MenuItem Header="Show Start in Preview" Command="{Binding SeekScrubberToSegmentCommand}"/>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                        </StackPanel>
 
-                        <Label Grid.Row="3" Content="Lyric"/>
-                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Lyric, UpdateSourceTrigger=PropertyChanged}" Margin="0,2" AcceptsReturn="True" MaxLines="2" ToolTip="One or two lines the operator sees on the card"/>
-                        <Label Grid.Row="4" Content="Colour"/>
-                        <ItemsControl Grid.Row="4" Grid.Column="1" ItemsSource="{Binding DataContext.PaletteList, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,4">
+                        <TextBlock Grid.Row="2" Text="Ends" Style="{StaticResource FieldLabel}"/>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+                            <CheckBox Content="Early" IsChecked="{Binding SelectedSegment.EndsEarly}" Margin="0,0,10,0"
+                                      ToolTip="Give the segment its own end, leaving a gap before the next one that belongs to no segment"/>
+                            <StackPanel Orientation="Horizontal" Visibility="{Binding SelectedSegment.EndsEarly, Converter={StaticResource Vis}}">
+                                <TextBox Style="{StaticResource TimeBox}" Text="{Binding SelectedSegment.EndText}"/>
+                                <Button Style="{StaticResource GlyphButton}" Content="&#xE738;" Margin="6,0,0,0" Command="{Binding NudgeEndCommand}" CommandParameter="-frame" ToolTip="One frame earlier (Shift: five)"/>
+                                <Button Style="{StaticResource GlyphButton}" Content="&#xE710;" Margin="2,0,0,0" Command="{Binding NudgeEndCommand}" CommandParameter="+frame" ToolTip="One frame later (Shift: five)"/>
+                                <Button Content="Set End" Margin="8,0,0,0" app:Ui.DropDownMenu="True" Padding="12,4">
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="To Resolume's Playhead" Command="{Binding SetEndFromPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
+                                            <MenuItem Header="To the Preview Position" Command="{Binding SetEndFromScrubberCommand}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Show End in Preview" Command="{Binding SeekScrubberToEndCommand}"/>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Text="Runs until the next segment starts" Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center"
+                                       Visibility="{Binding SelectedSegment.EndsEarly, Converter={StaticResource VisInv}}"/>
+                        </StackPanel>
+
+                        <TextBlock Grid.Row="3" Text="Lyric" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSegment.Lyric, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                                 app:Ui.Placeholder="A line to recognise it by on the card"/>
+
+                        <TextBlock Grid.Row="4" Text="Colour" Style="{StaticResource FieldLabel}"/>
+                        <ItemsControl Grid.Row="4" Grid.Column="1" ItemsSource="{Binding PaletteList}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Width="30" Height="26" Margin="0,0,5,0" Padding="0" MinHeight="0" Background="{Binding Converter={StaticResource Hex}}" BorderBrush="#66FFFFFF"
-                                            Command="{Binding DataContext.SetColorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
+                                    <Button Width="24" Height="24" MinHeight="0" Padding="0" Margin="0,0,7,0" Cursor="Hand"
+                                            Command="{Binding DataContext.SetColorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Grid>
+                                                    <Ellipse x:Name="Ring" Stroke="White" StrokeThickness="2" Visibility="Collapsed"/>
+                                                    <Ellipse Fill="{Binding Converter={StaticResource Hex}}" Margin="4"/>
+                                                </Grid>
+                                                <ControlTemplate.Triggers>
+                                                    <DataTrigger Value="True">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource SameText}">
+                                                                <Binding/>
+                                                                <Binding Path="DataContext.SelectedSegment.Color" RelativeSource="{RelativeSource AncestorType=UserControl}"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter TargetName="Ring" Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                        <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Content="Delete segment" Style="{StaticResource DangerButton}" MinHeight="28" FontSize="12" Margin="12,0,0,0" VerticalAlignment="Top"
-                                Command="{Binding DataContext.DeleteSegmentCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
                     </Grid>
-                    <ItemsControl ItemsSource="{Binding QuickNamesList}" Margin="0,4,0,0">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Button Content="{Binding}" Style="{StaticResource SmallButton}" Margin="0,0,4,4" Command="{Binding DataContext.SetNameCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <DockPanel Margin="0,6,0,0">
-                        <Button DockPanel.Dock="Right" Content="Delete song" Style="{StaticResource DangerButton}" MinHeight="30" FontSize="12" Command="{Binding DeleteSongCommand}"/>
-                        <Button DockPanel.Dock="Right" Content="Save (Ctrl+S)" Style="{StaticResource PrimaryButton}" MinWidth="140" Margin="0,0,8,0" Command="{Binding SaveCommand}"/>
-                        <Button DockPanel.Dock="Right" Content="Render thumbnails" Style="{StaticResource SmallButton}" MinHeight="30" Margin="0,0,8,0" Command="{Binding RenderThumbnailsCommand}"
-                                ToolTip="Renders the first frame of every segment that has no thumbnail or whose start time changed"/>
-                        <TextBlock Text="{Binding SaveStatusText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                </Border>
+
+                <!-- segments -->
+                <Border Style="{StaticResource InsetGroup}" Padding="0">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="16,12,12,8">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="Add at Playhead" Style="{StaticResource PrimaryButton}" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"
+                                        ToolTip="Add a segment where Resolume's playhead is now (M). Start the clip in Resolume to mark by ear."/>
+                                <Button Content="Add at Preview" Margin="6,0,0,0" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"
+                                        ToolTip="Add a segment at the preview position (Shift+M)"/>
+                                <Button Margin="6,0,0,0" app:Ui.DropDownMenu="True" Padding="10,4" ToolTip="Fill in segments and lyric notes automatically, on this PC">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE945;" Style="{StaticResource SymbolText}" FontSize="12"/>
+                                        <TextBlock Text="Auto" Margin="6,0,0,0"/>
+                                        <TextBlock Text="&#xE70D;" Style="{StaticResource SymbolText}" FontSize="9" Margin="6,1,0,0" Foreground="{StaticResource MutedBrush}"/>
+                                    </StackPanel>
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Suggest Segments…" Command="{Binding SuggestSegmentsCommand}"/>
+                                            <MenuItem Header="Read Lyric Notes from the Video" Command="{Binding ReadLyricsFromVideoCommand}"/>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Segments" Style="{StaticResource HeadlineText}"/>
+                                    <TextBlock Text="{Binding SegmentCountText}" Style="{StaticResource CaptionText}" FontSize="13" Margin="8,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource CaptionText}" FontSize="12" Margin="0,2,0,0">
+                                    <Run Text="Resolume"/>
+                                    <Run Text="{Binding PlayheadText, Mode=OneWay}" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" Typography.NumeralAlignment="Tabular"/>
+                                    <Run Text="{Binding PlayheadHint, Mode=OneWay}"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+
+                        <!-- suggestion progress and the keep/discard choice -->
+                        <Border DockPanel.Dock="Top" Background="#17283D" BorderBrush="#24456B" BorderThickness="1" CornerRadius="8" Margin="12,0,12,8" Padding="12,8"
+                                Visibility="{Binding SuggestStatus, Converter={StaticResource NotNullVis}}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" Visibility="{Binding HasDrafts, Converter={StaticResource Vis}}">
+                                        <Button Content="Discard Drafts" Style="{StaticResource DangerButton}" Command="{Binding DiscardDraftsCommand}"/>
+                                        <Button Content="Keep Drafts" Style="{StaticResource PrimaryButton}" Margin="6,0,0,0" Command="{Binding AcceptDraftsCommand}"/>
+                                    </StackPanel>
+                                    <Button Style="{StaticResource IconButton}" app:Ui.Icon="&#xE711;" ToolTip="Dismiss" Command="{Binding DismissSuggestStatusCommand}"
+                                            Visibility="{Binding HasDrafts, Converter={StaticResource VisInv}}"/>
+                                </StackPanel>
+                                <TextBlock Text="&#xE945;" DockPanel.Dock="Left" Style="{StaticResource SymbolText}" FontSize="13" Foreground="{StaticResource TintTextBrush}" Margin="0,0,10,0" VerticalAlignment="Top"/>
+                                <TextBlock Text="{Binding SuggestStatus}" FontSize="12.5" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+
+                        <Border DockPanel.Dock="Bottom" Style="{StaticResource ListBar}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Left" Style="{StaticResource BarGlyph}" Content="&#xE710;" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}" ToolTip="Add a segment at the preview position"/>
+                                <Button DockPanel.Dock="Left" Style="{StaticResource BarGlyph}" Content="&#xE738;" Command="{Binding DeleteSegmentCommand}" ToolTip="Delete the selected segment (Delete). Ctrl+Z brings it back."/>
+                                <TextBlock Text="Delete removes a segment; Ctrl+Z brings it back. Nothing is saved until you press Save." Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                            </DockPanel>
+                        </Border>
+
+                        <Grid>
+                            <ListBox x:Name="SegmentList" ItemsSource="{Binding Segments}" SelectedItem="{Binding SelectedSegment}" Background="Transparent" BorderThickness="0" Padding="8,0,8,4"
+                                     HorizontalContentAlignment="Stretch" Tag="{Binding DataContext, ElementName=Root}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SegmentEditItem}">
+                                        <Grid Margin="0,2" Background="Transparent" Tag="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                            <Grid.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Show in Preview" Command="{Binding PlacementTarget.Tag.SeekScrubberToSegmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <MenuItem Header="Set Start to Resolume's Playhead" Command="{Binding PlacementTarget.Tag.SetStartFromPlayheadCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <MenuItem Header="Set Start to the Preview Position" Command="{Binding PlacementTarget.Tag.SetStartFromScrubberCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="Delete Segment" InputGestureText="Delete" Style="{StaticResource DestructiveMenuItem}" Command="{Binding PlacementTarget.Tag.DeleteSegmentCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                                </ContextMenu>
+                                            </Grid.ContextMenu>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="12"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ctl:AspectBox Grid.Column="0" MaxHeight="50" MaxWidth="190" Ratio="{Binding Thumb, Converter={StaticResource Aspect}}" VerticalAlignment="Center">
+                                                <Border CornerRadius="5" ClipToBounds="True" Background="{Binding Color, Converter={StaticResource Hex}, ConverterParameter=0.55}">
+                                                    <Image Source="{Binding Thumb}" Stretch="Uniform" Visibility="{Binding Thumb, Converter={StaticResource NotNullVis}}"/>
+                                                </Border>
+                                            </ctl:AspectBox>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding RangeText}" FontSize="12.5" Opacity="0.75" Typography.NumeralAlignment="Tabular" Margin="10,0,0,0"/>
+                                                    <Ellipse DockPanel.Dock="Left" Width="9" Height="9" Fill="{Binding Color, Converter={StaticResource Hex}}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding Lyric}" FontSize="12" Opacity="0.7" TextTrimming="CharacterEllipsis" Margin="17,1,0,0" Visibility="{Binding Lyric, Converter={StaticResource NotNullVis}}"/>
+                                                <TextBlock Text="{Binding DraftText}" FontSize="11" FontStyle="Italic" Foreground="{StaticResource TintTextBrush}" Margin="17,1,0,0" Visibility="{Binding IsDraft, Converter={StaticResource Vis}}"/>
+                                                <TextBlock Text="{Binding ThumbStatus}" FontSize="11" Opacity="0.6" Margin="17,1,0,0" Visibility="{Binding ThumbStatus, Converter={StaticResource NotNullVis}}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380" Visibility="{Binding Segments.Count, Converter={StaticResource NoneVis}}">
+                                <TextBlock Text="No Segments Yet" Style="{StaticResource HeadlineText}" HorizontalAlignment="Center"/>
+                                <TextBlock Style="{StaticResource SecondaryText}" TextAlignment="Center" Margin="0,4,0,0"
+                                           Text="Play the clip in Resolume and press M at each section, step through the preview and press Shift+M, or let Auto suggest them."/>
+                            </StackPanel>
+                        </Grid>
                     </DockPanel>
-                </StackPanel>
+                </Border>
+            </DockPanel>
+
+            <!-- ================================================================== preview -->
+            <Border Grid.Column="2" Style="{StaticResource InsetGroup}" Padding="14,12">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding PreviewKind}" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Preview" Style="{StaticResource HeadlineText}"/>
+                    </DockPanel>
+                    <!-- height follows the clip's shape: a 16:9 song is 16:9 here, a 2688x512 canvas is a wide strip -->
+                    <Border DockPanel.Dock="Top" Background="Black" CornerRadius="8" ClipToBounds="True">
+                        <ctl:AspectBox Ratio="{Binding PreviewAspect}">
+                            <Grid>
+                                <Image Source="{Binding PreviewImage}" Stretch="Uniform" Visibility="{Binding ProxyPath, Converter={StaticResource NullVis}}"/>
+                                <MediaElement x:Name="Player" LoadedBehavior="Manual" UnloadedBehavior="Manual" ScrubbingEnabled="True" Stretch="Uniform"
+                                              Visibility="{Binding ProxyPath, Converter={StaticResource NotNullVis}}"
+                                              MediaOpened="Player_MediaOpened" MediaEnded="Player_MediaEnded" MediaFailed="Player_MediaFailed"
+                                              MouseLeftButtonUp="Player_MouseLeftButtonUp"/>
+                            </Grid>
+                        </ctl:AspectBox>
+                    </Border>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SourceFileStatus}" Margin="2,6,2,0" TextWrapping="Wrap" MaxHeight="48"
+                               ToolTip="{Binding SourceFileStatus}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SourceFileMissing}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource WarnBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- transport -->
+                    <Grid DockPanel.Dock="Top" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding ScrubText}" Style="{StaticResource TimecodeText}" FontSize="22" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button Style="{StaticResource GlyphButton}" Content="&#xE76B;" Height="32" Width="34" Click="StepBack_Click" ToolTip="Previous frame (←, Shift: one second)"/>
+                            <Button Style="{StaticResource PrimaryButton}" Margin="6,0" MinWidth="92" Command="{Binding PlayPauseCommand}" ToolTip="Space">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontSize="12" Foreground="White">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource SymbolText}">
+                                                <Setter Property="Text" Value="&#xE768;"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True"><Setter Property="Text" Value="&#xE769;"/></DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding PlayPauseText}" Foreground="White" Margin="7,0,0,0"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource GlyphButton}" Content="&#xE76C;" Height="32" Width="34" Click="StepForward_Click" ToolTip="Next frame (→, Shift: one second)"/>
+                        </StackPanel>
+                    </Grid>
+                    <Slider DockPanel.Dock="Top" x:Name="ScrubSlider" Minimum="0" Maximum="{Binding DurationMs}" Value="{Binding ScrubMs}" IsMoveToPointEnabled="True"
+                            SmallChange="{Binding FrameStepMs}" LargeChange="1000" Margin="0,8,0,0" PreviewKeyDown="ScrubSlider_PreviewKeyDown" IsEnabled="{Binding ScrubberAvailable}"
+                            Thumb.DragStarted="ScrubSlider_DragStarted"/>
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding ScrubStatus}" Style="{StaticResource CaptionText}" TextWrapping="Wrap" Margin="2,4,2,0" Visibility="{Binding ScrubStatus, Converter={StaticResource NotNullVis}}"/>
+
+                    <TextBlock DockPanel.Dock="Top" Text="Every 2 Seconds" Style="{StaticResource SectionHeader}" Margin="2,14,0,6" Visibility="{Binding Frames.Count, Converter={StaticResource AnyVis}}"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                        <ItemsControl ItemsSource="{Binding Frames}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:FilmstripFrame}">
+                                    <ctl:AspectBox Height="52" Margin="2" Cursor="Hand" Ratio="{Binding Image, Converter={StaticResource Aspect}}" MouseLeftButtonDown="Frame_MouseLeftButtonDown" ToolTip="{Binding TimeText}">
+                                        <Border CornerRadius="4" ClipToBounds="True">
+                                            <Grid>
+                                                <Image Source="{Binding Image}" Stretch="Uniform"/>
+                                                <Border Background="#B3000000" CornerRadius="3" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="2" Padding="3,0">
+                                                    <TextBlock Text="{Binding TimeText}" FontSize="9" Foreground="White" Typography.NumeralAlignment="Tabular"/>
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                    </ctl:AspectBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
             </Border>
         </Grid>
-        <TextBlock Grid.Column="2" Text="Pick a song on the left, or create one from the composition or a file." Foreground="{StaticResource MutedBrush}" FontSize="16"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding HasSong, Converter={StaticResource VisInv}}"/>
 
-        <!-- ===== right: preview player ===== -->
-        <Border Grid.Column="4" Style="{StaticResource Panel}" Margin="0" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionLabel}" Margin="0,0,0,4" Text="PREVIEW — follows the selected segment's start and end"/>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding SourceFileStatus}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                <!-- height follows the clip's shape: a 16:9 song is 16:9 here, a 2688x512 canvas is a wide strip -->
-                <Border DockPanel.Dock="Top" Background="Black" CornerRadius="6" ClipToBounds="True">
-                    <ctl:AspectBox Ratio="{Binding PreviewAspect}">
-                    <Grid>
-                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" Visibility="{Binding ProxyPath, Converter={StaticResource NullVis}}"/>
-                        <MediaElement x:Name="Player" LoadedBehavior="Manual" UnloadedBehavior="Manual" ScrubbingEnabled="True" Stretch="Uniform"
-                                      Visibility="{Binding ProxyPath, Converter={StaticResource NotNullVis}}"
-                                      MediaOpened="Player_MediaOpened" MediaEnded="Player_MediaEnded" MediaFailed="Player_MediaFailed"
-                                      MouseLeftButtonUp="Player_MouseLeftButtonUp"/>
-                    </Grid>
-                    </ctl:AspectBox>
-                </Border>
-                <DockPanel DockPanel.Dock="Top" Margin="0,6,0,0">
-                    <Button DockPanel.Dock="Left" Content="{Binding PlayPauseText}" Style="{StaticResource PrimaryButton}" MinWidth="96" MinHeight="32" Command="{Binding PlayPauseCommand}" ToolTip="Space"/>
-                    <Button DockPanel.Dock="Right" Content="▶|" Style="{StaticResource SmallButton}" MinHeight="32" Width="40" Click="StepForward_Click" ToolTip="Next frame (→)"/>
-                    <Button DockPanel.Dock="Right" Content="|◀" Style="{StaticResource SmallButton}" MinHeight="32" Width="40" Margin="0,0,4,0" Click="StepBack_Click" ToolTip="Previous frame (←)"/>
-                    <StackPanel VerticalAlignment="Center" Margin="10,0">
-                        <TextBlock Text="{Binding ScrubText}" FontFamily="Consolas" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
-                        <TextBlock Text="{Binding PreviewKind}" FontSize="10" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </DockPanel>
-                <Slider DockPanel.Dock="Top" x:Name="ScrubSlider" Minimum="0" Maximum="{Binding DurationMs}" Value="{Binding ScrubMs}" IsMoveToPointEnabled="True"
-                        SmallChange="{Binding FrameStepMs}" LargeChange="1000" Margin="0,4" PreviewKeyDown="ScrubSlider_PreviewKeyDown" IsEnabled="{Binding ScrubberAvailable}"
-                        Thumb.DragStarted="ScrubSlider_DragStarted"/>
-                <TextBlock DockPanel.Dock="Top" Text="{Binding ScrubStatus}" FontSize="11" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
-                    <ItemsControl ItemsSource="{Binding Frames}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:FilmstripFrame}">
-                                <ctl:AspectBox Height="53" Margin="2" Cursor="Hand" Ratio="{Binding Image, Converter={StaticResource Aspect}}" MouseLeftButtonDown="Frame_MouseLeftButtonDown" ToolTip="{Binding TimeText}">
-                                    <Grid>
-                                        <Image Source="{Binding Image}" Stretch="Uniform"/>
-                                        <TextBlock Text="{Binding TimeText}" FontSize="9" Foreground="White" Background="#99000000" HorizontalAlignment="Left" VerticalAlignment="Bottom" Padding="2,0"/>
-                                    </Grid>
-                                </ctl:AspectBox>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+        <!-- ================================================================== setlist editor -->
+        <DockPanel Grid.Column="2" DataContext="{Binding Setlists}" Visibility="{Binding DataContext.IsSetlistView, ElementName=Root, Converter={StaticResource Vis}}">
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Style="{StaticResource Badge}" Background="#1D3326" Padding="10,4" Visibility="{Binding IsActive, Converter={StaticResource Vis}}" ToolTip="This is the setlist in Show mode's toolbar">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE73E;" Style="{StaticResource SymbolText}" FontSize="11" Foreground="{StaticResource AccentBrush}"/>
+                            <TextBlock Text="On Show" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="12" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="Use in Show Mode" Style="{StaticResource PrimaryButton}" Command="{Binding UseInShowCommand}" Visibility="{Binding IsActive, Converter={StaticResource VisInv}}"/>
+                    <Button Style="{StaticResource IconButton}" app:Ui.Icon="&#xE712;" app:Ui.DropDownMenu="True" Margin="6,0,0,0" ToolTip="More"
+                            DataContext="{Binding DataContext, ElementName=Root}">
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Rename…" Command="{Binding RenameSetlistCommand}"/>
+                                <MenuItem Header="Duplicate…" Command="{Binding DuplicateSetlistCommand}"/>
+                                <Separator/>
+                                <MenuItem Header="Delete Setlist…" Style="{StaticResource DestructiveMenuItem}" Command="{Binding DeleteSetlistCommand}"/>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="{Binding SelectedName}" Style="{StaticResource LargeTitleText}" FontSize="24"/>
+                    <TextBlock Style="{StaticResource CaptionText}" FontSize="12" Margin="0,2,0,0">
+                        <Run Text="{Binding Summary, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="Changes save automatically"/>
+                    </TextBlock>
+                </StackPanel>
             </DockPanel>
-        </Border>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="340"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- running order -->
+                <Border Grid.Column="0" Style="{StaticResource InsetGroup}" Padding="0">
+                    <DockPanel>
+                        <DockPanel DockPanel.Dock="Top" Margin="16,12,16,8">
+                            <TextBlock Text="Drag to reorder" Style="{StaticResource CaptionText}" DockPanel.Dock="Right" VerticalAlignment="Center"/>
+                            <TextBlock Text="Running Order" Style="{StaticResource HeadlineText}"/>
+                        </DockPanel>
+                        <Border DockPanel.Dock="Bottom" Style="{StaticResource ListBar}">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Style="{StaticResource BarGlyph}" Content="&#xE738;" Command="{Binding RemoveSongCommand}" ToolTip="Remove from this setlist (Delete). The song stays in the library."/>
+                                <Rectangle Width="1" Fill="{StaticResource SeparatorBrush}" Margin="6,4"/>
+                                <Button Style="{StaticResource BarGlyph}" Content="&#xE74A;" Command="{Binding MoveUpCommand}" ToolTip="Move up"/>
+                                <Button Style="{StaticResource BarGlyph}" Content="&#xE74B;" Command="{Binding MoveDownCommand}" ToolTip="Move down"/>
+                            </StackPanel>
+                        </Border>
+                        <Grid>
+                            <ListBox x:Name="EntryList" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" Background="Transparent" BorderThickness="0" Padding="8,0,8,4"
+                                     AllowDrop="True" PreviewMouseLeftButtonDown="EntryList_PreviewMouseLeftButtonDown" PreviewMouseMove="EntryList_PreviewMouseMove" Drop="EntryList_Drop" DragOver="EntryList_DragOver"
+                                     Tag="{Binding}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:SetlistEntry}">
+                                        <DockPanel Margin="0,3" Background="Transparent" Tag="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListBox}}">
+                                            <DockPanel.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Move Up" Command="{Binding PlacementTarget.Tag.MoveUpCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                    <MenuItem Header="Move Down" Command="{Binding PlacementTarget.Tag.MoveDownCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                    <Separator/>
+                                                    <MenuItem Header="Remove from Setlist" InputGestureText="Delete" Command="{Binding PlacementTarget.Tag.RemoveSongCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                </ContextMenu>
+                                            </DockPanel.ContextMenu>
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding Number}" Width="26" FontSize="13" Opacity="0.55" Typography.NumeralAlignment="Tabular" VerticalAlignment="Center"/>
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding Detail}" FontSize="12" Opacity="0.65" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                            <TextBlock Text="{Binding Title}" FontSize="14" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="340" Visibility="{Binding Entries.Count, Converter={StaticResource NoneVis}}">
+                                <TextBlock Text="No Songs Yet" Style="{StaticResource HeadlineText}" HorizontalAlignment="Center"/>
+                                <TextBlock Style="{StaticResource SecondaryText}" TextAlignment="Center" Margin="0,4,0,0"
+                                           Text="Double-click a column on the right to add it. Columns that aren't in the library yet are added as new songs."/>
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- songs to add: Resolume's columns on the song layer -->
+                <Border Grid.Column="2" Style="{StaticResource InsetGroup}" Padding="0">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="16,12,16,8">
+                            <TextBlock Text="Add Songs" Style="{StaticResource HeadlineText}"/>
+                            <TextBlock Text="{Binding SourceHeader}" Style="{StaticResource CaptionText}" FontSize="12" Margin="0,2,0,8"/>
+                            <TextBox Style="{StaticResource SearchBox}" app:Ui.Placeholder="Search columns" Text="{Binding SourceSearch, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <Border DockPanel.Dock="Bottom" Style="{StaticResource ListBar}">
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Add to Setlist" Command="{Binding AddSongCommand}"/>
+                                <TextBlock Text="or double-click" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+                        <ListBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" Background="Transparent" BorderThickness="0" Padding="8,0,8,4" MouseDoubleClick="Source_MouseDoubleClick">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:SourceItem}">
+                                    <StackPanel Margin="0,2">
+                                        <TextBlock Text="{Binding Title}" FontSize="13" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </DockPanel>
     </Grid>
     </ScrollViewer>
 </UserControl>

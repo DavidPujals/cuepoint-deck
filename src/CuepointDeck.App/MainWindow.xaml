@@ -4,7 +4,7 @@
         xmlns:app="clr-namespace:CuepointDeck.App"
         xmlns:vm="clr-namespace:CuepointDeck.App.ViewModels"
         xmlns:views="clr-namespace:CuepointDeck.App.Views"
-        Title="Cuepoint Deck"
+        Title="Cuepoint Deck" Style="{StaticResource AppWindow}"
         Icon="/Assets/cuepointdeck.ico"
         Background="{StaticResource BgBrush}"
         MinWidth="640" MinHeight="400"
@@ -13,6 +13,10 @@
         Activated="Window_Activated" PreviewKeyDown="Window_PreviewKeyDown" Closing="Window_Closing">
     <Window.Resources>
         <app:BoolToVisibilityConverter x:Key="Vis"/>
+        <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
+        <app:NotConverter x:Key="Not"/>
+        <app:CountToVisibilityConverter x:Key="AnyVis"/>
+        <app:NullToVisibilityConverter x:Key="NotNullVis"/>
         <app:WidthBelowConverter x:Key="Narrow"/>
         <app:WidthBelowConverter x:Key="Wide" Invert="True"/>
         <DataTemplate DataType="{x:Type vm:ShowViewModel}">
@@ -21,95 +25,309 @@
         <DataTemplate DataType="{x:Type vm:EditViewModel}">
             <views:EditView/>
         </DataTemplate>
+
+        <!-- a song in the setlist: a capsule. Live = green dot; chosen with the arrow keys = tinted outline;
+             not in the composition = dimmed. A click brings it up; right-click for more. -->
         <DataTemplate x:Key="SetlistSongTemplate" DataType="{x:Type vm:SetlistSongItem}">
-            <Border x:Name="Chip" Margin="0,0,6,0" Padding="10,3" CornerRadius="7" BorderThickness="2" BorderBrush="{StaticResource LineBrush}" Background="{StaticResource Panel2Brush}"
-                    Cursor="Hand" MouseLeftButtonDown="SetlistSong_MouseLeftButtonDown" ToolTip="{Binding Detail}">
-                <TextBlock Text="{Binding Title}" FontSize="13" x:Name="ChipText"/>
+            <Border x:Name="Chip" Margin="0,0,6,0" Padding="12,4" CornerRadius="14" BorderThickness="1" BorderBrush="Transparent" Background="{StaticResource Panel2Brush}"
+                    Cursor="Hand" MouseLeftButtonUp="SetlistSong_MouseLeftButtonUp" ToolTip="{Binding Detail}"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Bring Up in Resolume" FontWeight="SemiBold" Command="{Binding PlacementTarget.Tag.LaunchItemCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                        <MenuItem Header="Edit Song" Command="{Binding PlacementTarget.Tag.EditSongCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                        <Separator/>
+                        <MenuItem Header="Edit Setlist…" Command="{Binding PlacementTarget.Tag.EditSetlistCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="LiveDot" Width="7" Height="7" Fill="{StaticResource AccentBrush}" Margin="0,0,7,0" VerticalAlignment="Center" Visibility="Collapsed"/>
+                    <TextBlock Text="{Binding Title}" FontSize="13" x:Name="ChipText"/>
+                </StackPanel>
             </Border>
             <DataTemplate.Triggers>
+                <Trigger SourceName="Chip" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource ControlHoverBrush}"/>
+                </Trigger>
                 <DataTrigger Binding="{Binding IsUnknown}" Value="True">
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
                     <Setter TargetName="ChipText" Property="FontStyle" Value="Italic"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsAvailable}" Value="False">
-                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource MutedBrush}"/>
-                    <Setter TargetName="ChipText" Property="TextDecorations" Value="Strikethrough"/>
+                    <Setter TargetName="ChipText" Property="Foreground" Value="{StaticResource TertiaryBrush}"/>
+                    <Setter TargetName="Chip" Property="Background" Value="#1C2026"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                    <Setter TargetName="Chip" Property="Background" Value="{StaticResource SelectBrush}"/>
+                    <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource TintTextBrush}"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-                    <Setter TargetName="Chip" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
-                    <Setter TargetName="ChipText" Property="FontWeight" Value="Bold"/>
+                    <Setter TargetName="LiveDot" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="ChipText" Property="FontWeight" Value="SemiBold"/>
+                    <Setter TargetName="Chip" Property="Background" Value="#1D3326"/>
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-    </Window.Resources>
-    <DockPanel Margin="10">
-        <!-- ===== the one top bar: connection, setlist (Show mode), warnings, role, pin, mode and windows ===== -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource Panel}" Padding="10,6">
-            <!-- one row when there is room; below 1100 px the setlist drops to a second row so the songs stay visible -->
-            <StackPanel>
-            <DockPanel>
-                <Ellipse DockPanel.Dock="Left" Width="14" Height="14" Fill="{Binding LightBrush}" Margin="0,0,8,0" VerticalAlignment="Center"
-                         ToolTip="{Binding HostText}"/>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding ConnectionText}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,14,0"
-                           ToolTip="{Binding HostText}"/>
 
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <Border Background="{StaticResource Panel2Brush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" CornerRadius="5" Padding="9,2" VerticalAlignment="Center" Margin="0,0,10,0"
-                            x:Name="RoleBadge">
-                        <TextBlock Text="{Binding RoleText}" FontWeight="Bold" FontSize="12"/>
-                    </Border>
-                    <ToggleButton Style="{StaticResource PinButton}" IsChecked="{Binding AlwaysOnTop}" MinHeight="28" FontSize="12" Margin="0,0,10,0"
-                                  ToolTip="Keep Cuepoint Deck above Resolume and other windows when you click away from it">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="📌" Margin="0,0,5,0"/>
-                            <TextBlock Text="{Binding PinText}"/>
+        <!-- the setlist group: pop-up button + the songs in order -->
+        <DataTemplate x:Key="SetlistBar" DataType="{x:Type vm:ShowViewModel}">
+            <DockPanel>
+                <ComboBox x:Name="SetlistPicker" DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="190" VerticalAlignment="Center" Margin="0,0,10,0"
+                          ToolTip="The setlist on show. Create and edit setlists in Edit mode."/>
+                <TextBlock x:Name="NoSetlists" DockPanel.Dock="Left" Text="No setlists yet. Make one in Edit mode." Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" VerticalAlignment="Center">
+                    <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding SetlistNames.Count}" Value="0">
+                    <Setter TargetName="NoSetlists" Property="Visibility" Value="Visible"/>
+                    <Setter TargetName="SetlistPicker" Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <Style x:Key="PopoverPopup" TargetType="Popup">
+            <Setter Property="StaysOpen" Value="False"/>
+            <Setter Property="AllowsTransparency" Value="True"/>
+            <Setter Property="PopupAnimation" Value="Fade"/>
+            <Setter Property="Placement" Value="Bottom"/>
+            <Setter Property="VerticalOffset" Value="4"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <DockPanel Margin="12,8,12,12">
+            <!-- ===================================================================== toolbar -->
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- leading: connection status, a pill that opens its details -->
+                <ToggleButton Grid.Column="0" x:Name="ConnectionPill" Style="{StaticResource ToolbarButton}" Padding="10,4" Margin="0,0,10,0"
+                              IsChecked="{Binding IsConnectionPopoverOpen, Mode=TwoWay}" IsHitTestVisible="{Binding IsOpen, ElementName=ConnectionPopup, Converter={StaticResource Not}}"
+                              ToolTip="Connection to Resolume">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Fill="{Binding LightBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ConnectionText}" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </ToggleButton>
+                <Popup x:Name="ConnectionPopup" Style="{StaticResource PopoverPopup}" PlacementTarget="{Binding ElementName=ConnectionPill}" IsOpen="{Binding IsConnectionPopoverOpen, Mode=TwoWay}">
+                    <Border Style="{StaticResource Popover}" Width="330">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="10" Height="10" Fill="{Binding LightBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ConnectionTitle}" Style="{StaticResource HeadlineText}" Margin="9,0,0,0"/>
+                            </StackPanel>
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="78"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Address" Style="{StaticResource SecondaryText}" Margin="0,2"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ConnectionAddress}" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Text="Status" Style="{StaticResource SecondaryText}" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ConnectionState}" TextWrapping="Wrap" Margin="0,2"/>
+                                <TextBlock Grid.Row="2" Text="Live" Style="{StaticResource SecondaryText}" Margin="0,2"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LiveClipText}" TextWrapping="Wrap" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Text="Error" Style="{StaticResource SecondaryText}" Margin="0,2" Visibility="{Binding ConnectionError, Converter={StaticResource NotNullVis}}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ConnectionError}" Foreground="{StaticResource WarnBrush}" TextWrapping="Wrap" Margin="0,2" Visibility="{Binding ConnectionError, Converter={StaticResource NotNullVis}}"/>
+                            </Grid>
+                            <Button Content="Connection Settings…" HorizontalAlignment="Right" Margin="0,14,0,0" Command="{Binding OpenSettingsCommand}" CommandParameter="resolume"/>
                         </StackPanel>
-                    </ToggleButton>
-                    <Button Content="{Binding ModeButtonText}" Style="{StaticResource PrimaryButton}" MinHeight="28" MinWidth="130" FontSize="12" Command="{Binding ToggleModeCommand}"/>
-                    <Button Content="Settings" MinHeight="28" FontSize="12" Margin="6,0,0,0" Command="{Binding OpenSettingsCommand}" ToolTip="Connection, library, ffmpeg, the log and updates"/>
+                    </Border>
+                </Popup>
+
+                <!-- centre: the setlist in Show mode; in Edit mode, a reminder that nothing is sent -->
+                <ContentControl Grid.Column="1" Content="{Binding Show}" ContentTemplate="{StaticResource SetlistBar}" Focusable="False" VerticalAlignment="Center">
+                    <ContentControl.Style>
+                        <Style TargetType="ContentControl">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsShowMode}" Value="True"/>
+                                        <Condition Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1100}" Value="Visible"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ContentControl.Style>
+                </ContentControl>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsEditMode, Converter={StaticResource Vis}}">
+                    <TextBlock Text="&#xE70F;" Style="{StaticResource SymbolText}" FontSize="12" Foreground="{StaticResource TertiaryBrush}"/>
+                    <TextBlock Text="Editing. Nothing here is sent to Resolume." Style="{StaticResource CaptionText}" FontSize="12" Margin="7,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <TextBlock DockPanel.Dock="Right" Text="{Binding MessageText}" Foreground="{Binding MessageBrush}" Margin="12,0,12,0" MaxWidth="320"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding MessageText}"/>
+                <!-- trailing: issues, role, pin, the mode switch, shortcuts, settings -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="10,0,0,0">
+                    <ToggleButton x:Name="IssuesButton" Style="{StaticResource ToolbarButton}" Margin="0,0,4,0" Visibility="{Binding IssueCount, Converter={StaticResource AnyVis}}"
+                                  IsChecked="{Binding IsIssuesPopoverOpen, Mode=TwoWay}" IsHitTestVisible="{Binding IsOpen, ElementName=IssuesPopup, Converter={StaticResource Not}}" ToolTip="Things that need attention">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource SymbolText}" Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="{Binding IssueCount}" Foreground="{StaticResource WarnBrush}" FontWeight="SemiBold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ToggleButton>
+                    <Popup x:Name="IssuesPopup" Style="{StaticResource PopoverPopup}" PlacementTarget="{Binding ElementName=IssuesButton}" Placement="Bottom" HorizontalOffset="-322" IsOpen="{Binding IsIssuesPopoverOpen, Mode=TwoWay}">
+                        <Border Style="{StaticResource Popover}" Width="360">
+                            <StackPanel>
+                                <TextBlock Text="Needs Attention" Style="{StaticResource HeadlineText}"/>
+                                <ItemsControl ItemsSource="{Binding Issues}" Margin="0,8,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:IssueItem}">
+                                            <DockPanel Margin="0,6">
+                                                <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource SymbolText}" FontSize="13" Foreground="{StaticResource WarnBrush}" VerticalAlignment="Top" Margin="0,2,10,0"/>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Text}" Style="{StaticResource BodyText}"/>
+                                                    <Button Style="{StaticResource LinkButton}" Content="{Binding ActionLabel}" Command="{Binding Action}" Margin="0,4,0,0" HorizontalAlignment="Left"
+                                                            Visibility="{Binding HasAction, Converter={StaticResource Vis}}"/>
+                                                </StackPanel>
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
 
-                <!-- setlist: dropdown and the songs in order; hidden in Edit mode, and on narrow windows shown below instead -->
-                <Grid Visibility="{Binding IsShowMode, Converter={StaticResource Vis}}">
-                <DockPanel DataContext="{Binding Show}" Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1100}">
-                    <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="180" MinHeight="28" VerticalAlignment="Center" Margin="0,0,10,0"
-                              ToolTip="Active setlist. Create and edit setlists in Edit mode."/>
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" VerticalAlignment="Center">
-                        <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
-                </Grid>
-            </DockPanel>
-            <Grid Margin="0,6,0,0" Visibility="{Binding IsShowMode, Converter={StaticResource Vis}}">
-                <DockPanel DataContext="{Binding Show}" Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Narrow}, ConverterParameter=1100}">
-                    <ComboBox DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="180" MinHeight="28" VerticalAlignment="Center" Margin="0,0,10,0"
-                              ToolTip="Active setlist. Create and edit setlists in Edit mode."/>
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" VerticalAlignment="Center">
-                        <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
+                    <Border Style="{StaticResource Badge}" Background="#3A2A10" Margin="0,0,8,0" Visibility="{Binding IsFollow, Converter={StaticResource Vis}}"
+                            ToolTip="This PC is set to Follow: it shows the deck but cannot fire, queue, loop or launch. Change it in Settings → General.">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolText}" FontSize="11" Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="Follow · Read Only" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource WarnBrush}" Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton Style="{StaticResource PinButton}" app:Ui.Icon="&#xE718;" IsChecked="{Binding AlwaysOnTop}" Margin="0,0,8,0" ToolTip="{Binding PinToolTip}"/>
+
+                    <!-- segmented control: the two modes of the one window -->
+                    <Border Style="{StaticResource SegmentedControl}" VerticalAlignment="Center" Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource SegmentItem}" Content="Show" app:Ui.IsSelected="{Binding IsShowMode}" Command="{Binding ShowModeCommand}" ToolTip="Run the service (Esc)"/>
+                            <Button Style="{StaticResource SegmentItem}" Content="Edit" app:Ui.IsSelected="{Binding IsEditMode}" Command="{Binding EditModeCommand}" ToolTip="Build songs and setlists (E)"/>
+                        </StackPanel>
+                    </Border>
+
+                    <ToggleButton x:Name="ShortcutsButton" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE765;" ToolTip="Keyboard shortcuts (F1)"
+                                  IsChecked="{Binding IsShortcutsOpen, Mode=TwoWay}" IsHitTestVisible="{Binding IsOpen, ElementName=ShortcutsPopup, Converter={StaticResource Not}}"/>
+                    <Popup x:Name="ShortcutsPopup" Style="{StaticResource PopoverPopup}" PlacementTarget="{Binding ElementName=ShortcutsButton}" Placement="Bottom" HorizontalOffset="-398"
+                           IsOpen="{Binding IsShortcutsOpen, Mode=TwoWay}">
+                        <Border Style="{StaticResource Popover}" Width="420">
+                            <StackPanel>
+                                <TextBlock Text="Keyboard Shortcuts" Style="{StaticResource HeadlineText}"/>
+                                <TextBlock Text="Keys work while Cuepoint Deck is the active window. Nothing is global, because Resolume uses the same keys." Style="{StaticResource SecondaryText}" Margin="0,4,0,0"/>
+                                <ItemsControl ItemsSource="{Binding Shortcuts}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:ShortcutGroup}">
+                                            <StackPanel Margin="0,12,0,0">
+                                                <TextBlock Text="{Binding Title}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+                                                <ItemsControl ItemsSource="{Binding Rows}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate DataType="{x:Type vm:ShortcutRow}">
+                                                            <Grid Margin="0,2">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="112"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Border Style="{StaticResource Badge}" HorizontalAlignment="Left" CornerRadius="5" Padding="7,1">
+                                                                    <TextBlock Text="{Binding Keys}" FontSize="12" FontWeight="SemiBold"/>
+                                                                </Border>
+                                                                <TextBlock Grid.Column="1" Text="{Binding Action}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                    <Button Style="{StaticResource IconButton}" app:Ui.Icon="&#xE713;" ToolTip="Settings (Ctrl+,)" Command="{Binding OpenSettingsCommand}"/>
+                </StackPanel>
             </Grid>
+
+            <!-- narrow windows: the setlist gets a row of its own so the songs stay visible -->
+            <ContentControl DockPanel.Dock="Top" Content="{Binding Show}" ContentTemplate="{StaticResource SetlistBar}" Focusable="False" Margin="0,0,0,10">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsShowMode}" Value="True"/>
+                                    <Condition Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Narrow}, ConverterParameter=1100}" Value="Visible"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+
+            <ContentControl Content="{Binding CurrentView}" Focusable="False"/>
+        </DockPanel>
+
+        <!-- toast: brief feedback that never blocks or steals a click -->
+        <Border x:Name="Toast" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,26" Padding="16,9" CornerRadius="20"
+                Background="#F2262B33" BorderBrush="{StaticResource LineBrush}" BorderThickness="1" IsHitTestVisible="False" Opacity="0">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.5"/>
+            </Border.Effect>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ToastVisible}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.45"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="ToastIcon" FontSize="13">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource SymbolText}">
+                            <Setter Property="Text" Value="&#xE73E;"/>
+                            <Setter Property="Foreground" Value="{StaticResource TintTextBrush}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ToastIsWarning}" Value="True">
+                                    <Setter Property="Text" Value="&#xE7BA;"/>
+                                    <Setter Property="Foreground" Value="{StaticResource WarnBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="{Binding ToastText}" FontSize="13" Margin="9,0,0,0" VerticalAlignment="Center" MaxWidth="640" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
         </Border>
 
-        <ContentControl Content="{Binding CurrentView}" Focusable="False"/>
-    </DockPanel>
+        <!-- dims the window while a sheet is attached to it -->
+        <Border x:Name="DimLayer" Background="#73000000" Visibility="Collapsed"/>
+    </Grid>
 </Window>

@@ -3,36 +3,26 @@ using CuepointDeck.App.ViewModels;
 
 namespace CuepointDeck.App.Views;
 
+/// <summary>A normal, modeless window: changes apply as they are made, so there is no Save or Cancel.</summary>
 public partial class SettingsWindow : Window
 {
-    private readonly AppServices _services;
     private readonly SettingsViewModel _vm;
-    private readonly Action _openLog;
 
-    public SettingsWindow(AppServices services, Action openLog)
+    public SettingsWindow(AppServices services, ShellViewModel shell)
     {
         InitializeComponent();
-        _services = services;
-        _openLog = openLog;
-        _vm = new SettingsViewModel(services);
+        _vm = new SettingsViewModel(services, shell);
         DataContext = _vm;
+        Closing += (_, _) =>
+        {
+            // A field still being typed in commits when the window closes, like any other click-away.
+            if (System.Windows.Input.Keyboard.FocusedElement is System.Windows.Controls.TextBox box)
+                box.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+            _vm.FlushPending();
+        };
+        Closed += (_, _) => _vm.Detach();
+        PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) { Close(); e.Handled = true; } };
     }
 
-    private async void Save_Click(object sender, RoutedEventArgs e)
-    {
-        var settings = _vm.Build();
-        if (settings is null) return;
-        await _services.ApplySettingsAsync(settings);
-        DialogResult = true;
-    }
-
-    private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
-
-    private void Log_Click(object sender, RoutedEventArgs e) => _openLog();
-
-    private void About_Click(object sender, RoutedEventArgs e)
-    {
-        var w = new AboutWindow(_services.Connection.ProductInfo) { Owner = this };
-        w.ShowDialog();
-    }
+    public void SelectPane(string pane) => _vm.Pane = pane;
 }

@@ -6,9 +6,10 @@ using CuepointDeck.App.ViewModels;
 
 namespace CuepointDeck.App;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, Views.IDimmable
 {
     private readonly ShellViewModel _vm;
+    private bool _quitConfirmed;
 
     public MainWindow()
     {
@@ -17,14 +18,14 @@ public partial class MainWindow : Window
         DataContext = _vm;
         _vm.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(ShellViewModel.IsFollow))
-                RoleBadge.Background = _vm.IsFollow ? (Brush)FindResource("WarnBrush") : (Brush)FindResource("Panel2Brush");
             // Back in Show mode nothing should hold focus, so number keys reach the window.
             if (e.PropertyName == nameof(ShellViewModel.IsShowMode) && _vm.IsShowMode)
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () => Focus());
         };
         Loaded += (_, _) => Focus();
     }
+
+    public void SetDimmed(bool dimmed) => DimLayer.Visibility = dimmed ? Visibility.Visible : Visibility.Collapsed;
 
     private void Window_Activated(object sender, EventArgs e)
     {
@@ -37,7 +38,7 @@ public partial class MainWindow : Window
     {
         // Shortcuts only while this window has focus; nothing global, because Resolume uses the same keys.
         var focused = Keyboard.FocusedElement;
-        var inTextBox = focused is TextBox or PasswordBox or ComboBox || focused is DependencyObject d && FindParent<TextBox>(d) is not null;
+        var inTextBox = focused is TextBox or PasswordBox || focused is ComboBox { IsEditable: true } || focused is DependencyObject d && FindParent<TextBox>(d) is not null;
         if (_vm.HandleKey(e, inTextBox)) e.Handled = true;
     }
 
@@ -51,7 +52,7 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private void SetlistSong_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void SetlistSong_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         // A click brings the song up: its column is triggered in Resolume and the cards follow.
         if (sender is not FrameworkElement { DataContext: SetlistSongItem item }) return;
@@ -61,18 +62,16 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (_vm.Edit is not null && !_vm.IsShowMode && !_vm.Edit.CanLeave()) { e.Cancel = true; return; }
-        // A stray click on the close box mid-service must not take the deck down. Resolume keeps playing either way.
-        var headless = Environment.GetEnvironmentVariable("CUEPOINTDECK_SCREENSHOT") is { Length: > 0 }
-                    || Environment.GetEnvironmentVariable("CUEPOINTDECK_UPDATE_TEST") is { Length: > 0 };
-        if (!headless && !_confirmedExit)
+        if (!_quitConfirmed)
         {
-            var answer = Views.DarkMessageBox.Show("Close Cuepoint Deck?\n\nResolume keeps playing; nothing is sent on exit.", "Close Cuepoint Deck", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (answer != MessageBoxResult.Yes) { e.Cancel = true; return; }
-            _confirmedExit = true;
+            // Unsaved edits first (Save / Don't Save / Cancel), then the quit question itself.
+            if (_vm.Edit is not null && !_vm.IsShowMode && !_vm.Edit.CanLeave()) { e.Cancel = true; return; }
+            var headless = Environment.GetEnvironmentVariable("CUEPOINTDECK_SCREENSHOT") is { Length: > 0 }
+                        || Environment.GetEnvironmentVariable("CUEPOINTDECK_UPDATE_TEST") is { Length: > 0 }
+                        || App.SkipQuitConfirmation;
+            if (!headless && !_vm.ConfirmQuit()) { e.Cancel = true; return; }
+            _quitConfirmed = true;
         }
         _vm.Shutdown();
     }
-
-    private bool _confirmedExit;
 }

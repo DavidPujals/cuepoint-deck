@@ -38,6 +38,8 @@ public sealed class AppSettings
     /// <summary>Card size multiplier; 1.0 is about 240 px wide at 100% scaling.</summary>
     public double CardScale { get; set; } = 1.0;
     public string? ActiveSetlist { get; set; }
+    /// <summary>Ask before quitting. The quit alert's "Don't ask again" turns it off; Settings → General turns it back on.</summary>
+    public bool ConfirmQuit { get; set; } = true;
 
     [JsonIgnore]
     public int LatencyOffsetMs
