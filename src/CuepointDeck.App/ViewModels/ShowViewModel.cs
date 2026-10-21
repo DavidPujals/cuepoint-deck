@@ -52,7 +52,6 @@ public partial class ShowViewModel : ObservableObject
 
     // ---- density (set by the window from its height)
     [ObservableProperty] private bool _isCompact;
-    [ObservableProperty] private bool _isMinimal;
     public bool ShowFullHeader => HasSong && !IsCompact;
     public bool ShowSlimHeader => HasSong && IsCompact;
     partial void OnIsCompactChanged(bool value) { OnPropertyChanged(nameof(ShowFullHeader)); OnPropertyChanged(nameof(ShowSlimHeader)); }

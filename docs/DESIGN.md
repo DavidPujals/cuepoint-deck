@@ -32,8 +32,9 @@ The app runs in a dark booth beside Resolume, so it is dark only.
   warning. A healthy toolbar is quiet.
 - **Popovers** carry detail on demand, tied to the control that opened them: connection details, things needing
   attention (each with the action that fixes it), keyboard shortcuts. They close when you click away.
-- **Content first when space is short.** Show mode's chrome condenses as the window gets shorter (tighter toolbar,
-  a one-line song header, then slim trigger tiles), so the triggers, which are the content, keep the space.
+- **Content first when space is short.** Show mode's chrome condenses as the window gets shorter (a tighter toolbar
+  and a one-line song header), so the trigger cards, which are the content, keep the space. The cards themselves never
+  shrink: their thumbnails and lyric notes are how the operator recognises a section.
 - **Feedback** that doesn't need a decision is a toast at the bottom of the window. It never blocks or takes a click.
   The status strip of text it replaces is gone.
 

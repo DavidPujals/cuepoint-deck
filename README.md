@@ -138,8 +138,8 @@ bottom of the window and never block a click.
 - Ctrl + and Ctrl − make the cards bigger or smaller; Ctrl+0 resets.
 - The window can be as short as 200 px in Show mode, so it can sit as a strip under Resolume. Under 720 px tall the
   toolbar tightens, the setlist always stays in the toolbar row, and the song header becomes one slim line (title,
-  time, progress, time left). Under 460 px the cards become slim trigger tiles (number, name, loop, and the start time,
-  "Next" or the queue countdown) so a whole row of triggers still fits. Under 900 px wide the connection status shows
+  time, progress, time left), so the cards keep the room. The cards themselves stay full size at every height, with
+  their thumbnails and lyric notes; on a short window they scroll. Under 900 px wide the connection status shows
   just its dot and the shortcuts button steps aside (F1 still works). Edit mode needs at least 400 px and the window
   grows back to that when you switch to it.
 - Quitting asks first ("Quit Cuepoint Deck?", with Cancel as the default so a stray Return can't close the deck

@@ -26,13 +26,8 @@ public partial class MainWindow : Window, Views.IDimmable
         SizeChanged += (_, _) => UpdateDensity();
     }
 
-    /// <summary>Short windows give the trigger cards the room: tighter chrome under 720 px, slim tiles under 460 px.</summary>
-    private void UpdateDensity()
-    {
-        var h = ActualHeight;
-        _vm.IsCompact = h < 720;
-        _vm.IsMinimal = h < 460;
-    }
+    /// <summary>Short windows give the trigger cards the room: under 720 px the toolbar and song header condense.</summary>
+    private void UpdateDensity() => _vm.IsCompact = ActualHeight < 720;
 
     public void SetDimmed(bool dimmed) => DimLayer.Visibility = dimmed ? Visibility.Visible : Visibility.Collapsed;
 

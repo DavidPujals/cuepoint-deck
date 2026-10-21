@@ -115,80 +115,6 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
-        <!-- a slim trigger tile for short windows: number, name, loop, and the time or queue countdown; same clicks and menu -->
-        <DataTemplate x:Key="TileTemplate" DataType="{x:Type vm:SegmentCardViewModel}">
-            <Border x:Name="Card" Margin="4" CornerRadius="9" BorderThickness="2" BorderBrush="{StaticResource SeparatorBrush}"
-                    Background="{StaticResource PanelBrush}" Cursor="Hand" MinWidth="150" Padding="8,5,6,0"
-                    Width="{Binding DataContext.CardScale, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource Scale}, ConverterParameter=220}"
-                    MouseLeftButtonUp="Card_MouseLeftButtonUp" ToolTip="{Binding RangeText}">
-                <Border.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Header="Jump Now" InputGestureText="{Binding CutGesture}" Command="{Binding CutCommand}"/>
-                        <MenuItem Header="Jump at End of Current Segment" InputGestureText="{Binding QueueGesture}" Command="{Binding QueueCommand}"/>
-                        <Separator/>
-                        <MenuItem Header="Loop This Segment" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"/>
-                        <Separator/>
-                        <MenuItem Header="Edit Segment" Command="{Binding EditCommand}"/>
-                    </ContextMenu>
-                </Border.ContextMenu>
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <DockPanel Grid.Row="0">
-                        <Border DockPanel.Dock="Left" Background="{Binding ColorHex, Converter={StaticResource Hex}}" CornerRadius="5" Padding="6,0" MinWidth="20" Margin="0,0,8,0" VerticalAlignment="Center"
-                                Visibility="{Binding NumberLabel, Converter={StaticResource NotNullVis}}">
-                            <TextBlock Text="{Binding NumberLabel}" FontSize="12" FontWeight="Bold" Foreground="#0F1215" HorizontalAlignment="Center"/>
-                        </Border>
-                        <ToggleButton DockPanel.Dock="Right" Width="24" Height="22" FontSize="12" Margin="4,0,0,0" Background="Transparent"
-                                      Style="{StaticResource LoopButton}" IsChecked="{Binding IsLooping, Mode=OneWay}" Command="{Binding ToggleLoopCommand}"
-                                      Content="&#xE8EE;" ToolTip="Loop: at its end, go back to its start. L loops the live segment; Esc stops."/>
-                        <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
-                    </DockPanel>
-                    <TextBlock x:Name="Sub" Grid.Row="1" Text="{Binding StartText}" FontSize="11" Opacity="0.65" Margin="0,1,0,3" Typography.NumeralAlignment="Tabular" TextTrimming="CharacterEllipsis"/>
-                    <ProgressBar Grid.Row="2" Height="3" Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" Margin="-6,0,-4,0"
-                                 Background="Transparent" BorderThickness="0" Foreground="{Binding ColorHex, Converter={StaticResource Hex}}"/>
-                </Grid>
-            </Border>
-            <DataTemplate.Triggers>
-                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
-                    <Setter TargetName="Card" Property="BorderBrush" Value="#3A424D"/>
-                </Trigger>
-                <DataTrigger Binding="{Binding IsNext}" Value="True">
-                    <Setter TargetName="Sub" Property="Text" Value="Next"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsLive}" Value="True">
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{Binding ColorHex, Converter={StaticResource Hex}}"/>
-                    <Setter TargetName="Card" Property="Background" Value="{Binding ColorHex, Converter={StaticResource Hex}, ConverterParameter=0.2}"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsQueued}" Value="True">
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource WarnBrush}"/>
-                    <Setter TargetName="Sub" Property="Text" Value="{Binding QueueText}"/>
-                    <Setter TargetName="Sub" Property="Foreground" Value="{StaticResource WarnBrush}"/>
-                    <Setter TargetName="Sub" Property="Opacity" Value="1"/>
-                    <DataTrigger.EnterActions>
-                        <BeginStoryboard x:Name="TilePulse">
-                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                <DoubleAnimation Storyboard.TargetName="Card" Storyboard.TargetProperty="BorderBrush.Opacity" From="1" To="0.3" Duration="0:0:0.6"/>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </DataTrigger.EnterActions>
-                    <DataTrigger.ExitActions>
-                        <StopStoryboard BeginStoryboardName="TilePulse"/>
-                    </DataTrigger.ExitActions>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding IsFlashing}" Value="True">
-                    <Setter TargetName="Card" Property="BorderBrush" Value="{StaticResource DangerBrush}"/>
-                    <Setter TargetName="Card" Property="Background" Value="#4DFF453A"/>
-                </DataTrigger>
-                <DataTrigger Binding="{Binding DataContext.CanFire, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="False">
-                    <Setter TargetName="Card" Property="Opacity" Value="0.5"/>
-                    <Setter TargetName="Card" Property="Cursor" Value="Arrow"/>
-                </DataTrigger>
-            </DataTemplate.Triggers>
-        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -255,15 +181,7 @@
 
         <!-- ===== cards ===== -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Focusable="False" Visibility="{Binding HasSong, Converter={StaticResource Vis}}">
-            <ItemsControl ItemsSource="{Binding Cards}" Focusable="False" Margin="-6,0">
-                <ItemsControl.Style>
-                    <Style TargetType="ItemsControl">
-                        <Setter Property="ItemTemplate" Value="{StaticResource CardTemplate}"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding IsMinimal}" Value="True"><Setter Property="ItemTemplate" Value="{StaticResource TileTemplate}"/></DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </ItemsControl.Style>
+            <ItemsControl ItemsSource="{Binding Cards}" ItemTemplate="{StaticResource CardTemplate}" Focusable="False" Margin="-6,0">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal"/>
