@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CuepointDeck.App.Services;
 using CuepointDeck.App.Views;
 using CuepointDeck.Core;
 using CuepointDeck.Core.Analysis;
@@ -489,12 +490,14 @@ public partial class EditViewModel : ObservableObject
     private ClipInfo? FindClip()
     {
         if (_song is null) return null;
-        var byId = _services.Matches.For(_song.Id)?.Clip;
-        if (byId is not null) return byId;
         var mapper = new PathMapper(_services.Settings.PathMappings);
         var keys = mapper.Variants(_song.Clip.FilePath).Select(PathNorm.Key).ToHashSet();
+        bool Same(ClipInfo c) => keys.Contains(PathNorm.Key(c.FilePath)) || string.Equals(Path.GetFileName(c.FilePath), _song.Clip.FileName, StringComparison.OrdinalIgnoreCase);
+        // The saved song's match, unless the song has just been linked to other media and not saved yet.
+        var byId = _services.Matches.For(_song.Id)?.Clip;
+        if (byId is not null && (_song.Clip.FilePath.Length == 0 || Same(byId))) return byId;
         var comp = _services.Connection.Composition;
-        return comp?.Clips.FirstOrDefault(c => !c.IsEmpty && (keys.Contains(PathNorm.Key(c.FilePath)) || string.Equals(Path.GetFileName(c.FilePath), _song.Clip.FileName, StringComparison.OrdinalIgnoreCase)));
+        return comp?.Clips.Where(c => !c.IsEmpty && Same(c)).OrderBy(c => c.Layer == _services.Settings.SongLayer ? 0 : 1).FirstOrDefault();
     }
 
     partial void OnTitleChanged(string value) { if (_song is not null && _song.Title != value) { _song.Title = value; MarkDirty(); } }
@@ -1115,6 +1118,66 @@ public partial class EditViewModel : ObservableObject
             "It's removed from the library and from any setlists that use it, on every PC that shares the library. A backup copy stays in the library folder.",
             new AlertButton("delete", "Delete Song", AlertRole.Destructive | AlertRole.Leading),
             new AlertButton("cancel", "Cancel", AlertRole.Default | AlertRole.Cancel));
+    }
+
+    // ------------------------------------------------------------------ link / transfer
+
+    /// <summary>Points the open song at a column on the song layer: for songs imported from another campus while
+    /// Resolume was off, or when a song's video was replaced. Timings stay; thumbnails re-render from the new media.</summary>
+    [RelayCommand]
+    private async Task LinkToColumnAsync()
+    {
+        if (_song is null) return;
+        RefreshCompositionClips();
+        if (CompositionClips.Count == 0)
+        {
+            var connected = _services.Connection.State == ConnectionState.Connected;
+            Alert.Inform(connected ? $"There are no clips on layer {_services.Settings.SongLayer}" : "Resolume isn't connected",
+                connected ? "Songs link to a column on the song layer. Check the layer number in Settings → Resolume."
+                          : "Songs link to one of Resolume's columns, so it needs to be running with its web server on.");
+            return;
+        }
+        var hint = $"Choose the column on layer {_services.Settings.SongLayer} that “{Title}” plays from. Its timings stay as they are.";
+        var current = FindClip();
+        var picked = PickClipSheet.Pick(CompositionClips.ToList(), hint, linkFor: _song.Id, current: current?.ClipId);
+        if (picked is null || _song is null) return;
+        if (picked.ExistingSong is { } other && other.Id != _song.Id)
+        {
+            var choice = Alert.Show($"Column {picked.Clip.Column} is already “{other.Title}”",
+                "Two songs on one column can't both follow it in Show mode. Link this song anyway?",
+                new AlertButton("cancel", "Cancel", AlertRole.Cancel | AlertRole.Leading),
+                new AlertButton("link", "Link Anyway", AlertRole.Default));
+            if (choice != "link") return;
+        }
+        var clip = picked.Clip;
+        var sameMedia = string.Equals(PathNorm.Key(clip.FilePath), PathNorm.Key(_song.Clip.FilePath), StringComparison.Ordinal);
+        _song.Clip = new ClipRef { FilePath = clip.FilePath, FileName = Path.GetFileName(clip.FilePath), ClipName = clip.Name };
+        if (clip.DurationMs > 0) _song.DurationMs = (long)Math.Round(clip.DurationMs);
+        if (clip.Fps > 0) _song.Fps = clip.Fps;
+        if (!sameMedia) foreach (var s in Segments) { s.Segment.ThumbAtMs = -1; s.RefreshThumb(_services.Library); }
+        ClipFileText = _song.Clip.FilePath;
+        MarkDirty();
+        RefreshClipStatus();
+        RaiseTimeFormat();
+        _shell.ShowToast($"Linked to column {clip.Column}. Save to keep it.");
+        if (!sameMedia) await PrepareScrubberAsync();
+    }
+
+    [RelayCommand] private Task ImportSongsAsync() => SongTransferFlow.ImportAsync(_services, _shell);
+    [RelayCommand] private void ExportSongs() => SongTransferFlow.Export(_services, _shell, _song is not null && !_isNew ? new[] { _song.Id } : null);
+    [RelayCommand] private void ExportSong(SongListItem? item) { if (item is not null) SongTransferFlow.Export(_services, _shell, new[] { item.Song.Id }); }
+
+    /// <summary>After an import: shows the new copies of songs that changed underneath, unless the open one has edits.</summary>
+    public void ReloadSongs(IReadOnlyCollection<string> ids)
+    {
+        RefreshSongList();
+        if (_song is null || _isNew || IsDirty || !ids.Contains(_song.Id)) return;
+        if (_services.Library.GetSong(_song.Id) is { } saved)
+        {
+            var segment = SelectedSegment?.Segment.Id;
+            Load(Json.Deserialize<Song>(Json.Serialize(saved))!, isNew: false);
+            if (segment is not null) SelectedSegment = Segments.FirstOrDefault(s => s.Segment.Id == segment) ?? SelectedSegment;
+        }
     }
 
     [RelayCommand] private void OpenLibraryFolder() { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", _services.Library.RootPath) { UseShellExecute = true }); } catch { } }

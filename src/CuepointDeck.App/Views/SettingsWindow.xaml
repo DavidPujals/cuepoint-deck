@@ -62,6 +62,7 @@
                 <RadioButton Style="{StaticResource PaneTab}" GroupName="Pane" app:Ui.Icon="&#xE703;" Content="Resolume" IsChecked="{Binding Pane, Converter={StaticResource Is}, ConverterParameter=resolume}"/>
                 <RadioButton Style="{StaticResource PaneTab}" GroupName="Pane" app:Ui.Icon="&#xE8F1;" Content="Library" IsChecked="{Binding Pane, Converter={StaticResource Is}, ConverterParameter=library}"/>
                 <RadioButton Style="{StaticResource PaneTab}" GroupName="Pane" app:Ui.Icon="&#xE714;" Content="Media" IsChecked="{Binding Pane, Converter={StaticResource Is}, ConverterParameter=media}"/>
+                <RadioButton Style="{StaticResource PaneTab}" GroupName="Pane" app:Ui.Icon="&#xE895;" Content="Transfer" IsChecked="{Binding Pane, Converter={StaticResource Is}, ConverterParameter=transfer}"/>
                 <RadioButton Style="{StaticResource PaneTab}" GroupName="Pane" app:Ui.Icon="&#xE946;" Content="About" IsChecked="{Binding Pane, Converter={StaticResource Is}, ConverterParameter=about}"/>
             </StackPanel>
         </Border>
@@ -261,6 +262,48 @@
                     </StackPanel>
                 </Border>
                 <TextBlock Style="{StaticResource Footnote}" Text="Only Edit mode uses ffmpeg, for thumbnails, the preview player and suggested segments. Show mode never runs it. Unzip a Windows build anywhere and choose its bin\ffmpeg.exe; nothing needs installing."/>
+            </StackPanel>
+
+            <!-- ======================================================================= Transfer -->
+            <StackPanel>
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Pane}" Value="transfer"><Setter Property="Visibility" Value="Visible"/></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
+                <TextBlock Style="{StaticResource GroupTitle}" Text="Songs Between Campuses"/>
+                <Border Style="{StaticResource Group}">
+                    <StackPanel>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Button DockPanel.Dock="Right" Content="Export Songs…" MinWidth="128" Command="{Binding ExportSongsCommand}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <StackPanel>
+                                <TextBlock Text="Export" Style="{StaticResource RowLabel}"/>
+                                <TextBlock Text="Pick songs and save their timings to one file." Style="{StaticResource SecondaryText}" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <Rectangle Style="{StaticResource Divider}"/>
+                        <DockPanel Style="{StaticResource Row}">
+                            <Button DockPanel.Dock="Right" Content="Import Songs…" MinWidth="128" Command="{Binding ImportSongsCommand}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <StackPanel>
+                                <TextBlock Text="Import" Style="{StaticResource RowLabel}"/>
+                                <TextBlock Text="Open a file from another campus and choose the column each song plays from here." Style="{StaticResource SecondaryText}" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <Rectangle Style="{StaticResource Divider}" Visibility="{Binding HasLastExport, Converter={StaticResource Vis}}"/>
+                        <DockPanel Style="{StaticResource Row}" Visibility="{Binding HasLastExport, Converter={StaticResource Vis}}">
+                            <Button DockPanel.Dock="Right" Content="Show in Explorer" Command="{Binding ShowLastExportCommand}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                            <TextBlock Text="{Binding LastExportText}" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+                <TextBlock Style="{StaticResource Footnote}" TextWrapping="Wrap"
+                           Text="The file holds each song's segments: names, start and end times, colours and lyric notes. Media paths, Resolume columns and thumbnails differ between campuses, so they stay behind. On import each song is linked to a column on this PC's song layer, matched by name, and its thumbnails are rendered from the video here."/>
+                <TextBlock Style="{StaticResource Footnote}" Margin="14,0,14,16" TextWrapping="Wrap"
+                           Text="Exporting every song (Select All) also makes a backup of the library's timings."/>
             </StackPanel>
 
             <!-- ======================================================================= About -->

@@ -85,6 +85,8 @@ public partial class SettingsViewModel : ObservableObject
         _services.LiveChanged += OnLive;
         _services.SettingsChanged += OnSettingsChanged;
         _services.LibraryChanged += OnLibrary;
+        SongTransferFlow.LastExportChanged += OnLastExport;
+        OnLastExport();
     }
 
     /// <summary>Applies anything still waiting on the short debounce (the window is closing).</summary>
@@ -101,7 +103,23 @@ public partial class SettingsViewModel : ObservableObject
         _services.LiveChanged -= OnLive;
         _services.SettingsChanged -= OnSettingsChanged;
         _services.LibraryChanged -= OnLibrary;
+        SongTransferFlow.LastExportChanged -= OnLastExport;
     }
+
+    // ---- Transfer
+    [ObservableProperty] private string _lastExportText = "";
+    [ObservableProperty] private bool _hasLastExport;
+
+    private void OnLastExport()
+    {
+        var path = SongTransferFlow.LastExportPath;
+        HasLastExport = path is not null;
+        LastExportText = path is null ? "" : $"Last export: {System.IO.Path.GetFileName(path)}";
+    }
+
+    [RelayCommand] private void ExportSongs() => SongTransferFlow.Export(_services, _shell);
+    [RelayCommand] private Task ImportSongsAsync() => SongTransferFlow.ImportAsync(_services, _shell);
+    [RelayCommand] private void ShowLastExport() => SongTransferFlow.ShowLastExport();
 
     private void OnLive() => Application.Current?.Dispatcher.BeginInvoke(RefreshConnection);
     private void OnLibrary() => Application.Current?.Dispatcher.BeginInvoke(RefreshLibrarySummary);

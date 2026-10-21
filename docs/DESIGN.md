@@ -55,10 +55,15 @@ sentence of context, and buttons named for what they do. Never Yes/No/OK for a c
 | Delete a setlist | Delete the setlist “X”? | Delete Setlist · **Cancel** |
 | Suggestions over existing segments | Replace the existing segments? | Replace · Cancel · **Add as Drafts** |
 | No columns to pick from | Resolume isn't connected | New Song from File… · **OK** |
+| Link to a column another song uses | Column N is already “X” | Cancel · **Link Anyway** |
 
 Destructive buttons have a red label, sit apart at the leading edge, and are never the default. Asking for a name
 (new, rename, duplicate setlist) is a sheet that explains a clash under the field as you type and keeps Create
 disabled until the name works, instead of failing after it closes.
+
+Bigger choices are sheets with a list: **Export Songs** (tick songs, Select All / None, the count on the button)
+and **Import Songs**, where each row has a segmented **Replace | Skip** (or **Add | Skip**) and a pop-up for the
+column it plays from, pre-filled by name and checked for clashes before anything is saved.
 
 Prefer **undo** to a question. Deleting a segment doesn't ask; Ctrl+Z brings it back, and nothing is written until
 Save.
@@ -75,7 +80,7 @@ Save.
 
 ## Settings
 
-A normal window, not a dialog, with **panes** (General, Resolume, Library, Media, About) in a symbol-over-label tab
+A normal window, not a dialog, with **panes** (General, Resolume, Library, Media, Transfer, About) in a symbol-over-label tab
 bar. **Changes apply as you make them**: switches and pop-ups at once, text fields on Return or when you move on.
 There is no Save or Cancel. A value that can't be used is held back and explained under its group. Options are in
 grouped forms with a footnote under each group saying what it does. Frequently changed options stay out of Settings

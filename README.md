@@ -225,6 +225,32 @@ toolbar; the one on show is marked **On Show**.
 
 Show mode also works without any setlist; it just follows whatever clip is connected.
 
+### Moving songs to another campus
+
+Both campuses have the same songs, but their Resolume columns are numbered differently and their videos are scaled
+differently. The timings are the same, so they can travel; the rest stays put. **Settings → Transfer** does it in one
+file:
+
+1. **Export Songs…** at the campus that built the songs: tick the songs (search narrows the list, ticks are kept),
+   then save one `.cuedeck` file. Right-click a song in Edit mode's sidebar for **Export Song…** on its own; the
+   sidebar's **+** menu has **Import Songs…** and **Export Songs…** too.
+2. Take the file to the other campus (USB stick, email, a shared drive).
+3. **Import Songs…** there, with Resolume running. A sheet lists every song in the file:
+   - A song that **isn't here yet** is added. One that **is** (the same song imported before, or the same title,
+     ignoring case and punctuation) can be **replaced** or **skipped**, song by song, or with Replace All and Skip
+     All.
+   - Each song gets a **column** on this campus's song layer, picked from a menu and filled in beforehand by matching
+     the column name to the song title (then the clip name, then the file name). A song that already plays from a
+     column here keeps it. Two songs on one column are flagged.
+4. **Import** saves them, then renders the thumbnails from this campus's own video in the background. A video that
+   this PC can't open keeps colour placeholders until the song is saved in Edit mode on a PC that can.
+
+What travels: titles, artists, segment names, start and end times, colours and lyric notes. What doesn't: media
+paths, columns, thumbnails, setlists and settings. Replacing a song keeps its title here and swaps in the file's
+segments. If Resolume isn't connected during the import, songs come in without a column; open one in Edit mode and
+use **⋯ → Link to Column…** (or import again with Resolume running). Exporting every song also makes a backup of the
+library's timings.
+
 ## Updates
 
 New versions are published as [GitHub releases](https://github.com/DavidPujals/cuepoint-deck/releases). Inside the
@@ -317,6 +343,9 @@ Everything below was only checked on a development PC with Arena on the same mac
 9. **Mock services**: five songs from a setlist with launch on, then with launch off.
 10. **Three-hour soak** on the show PC with Resolume playing: memory, CPU and GPU use should stay flat.
    The Log window and Task Manager are enough.
-11. **Sheets and menus on the real screen**: alerts, the name prompt and the column picker should drop from just
+11. **Campus transfer**: export a few songs at one campus, import them at the other with Resolume running, check
+   the suggested columns, and confirm the cards fire at the same moments in both places with the local videos'
+   thumbnails.
+12. **Sheets and menus on the real screen**: alerts, the name prompt and the column picker should drop from just
    under the toolbar with a shadow and rounded corners and no title bar; context menus and pop-ups should have rounded
    corners and a shadow. (Screen captures on the development PC can't show window chrome.)

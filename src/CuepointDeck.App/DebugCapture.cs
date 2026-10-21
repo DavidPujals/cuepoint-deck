@@ -15,7 +15,7 @@ namespace CuepointDeck.App;
 ///   CUEPOINTDECK_SCREENSHOT_DELAY=&lt;s&gt;         wait before capturing (default 8)
 ///   CUEPOINTDECK_SCREENSHOT_MODE=&lt;mode&gt;      show (default) · edit · edit-setlist · edit-empty ·
 ///       settings:&lt;pane&gt; · popover:connection|issues|shortcuts · menu:card|chip|row|add|more|addseg ·
-///       sheet:quit|unsaved|delete|prompt|pick
+///       sheet:quit|unsaved|delete|prompt|pick|export|import|importoff
 /// Popovers, menus and sheets are drawn onto the window capture where they would appear, so one PNG shows the whole
 /// moment. The window itself is parked off-screen and never activated (see App.ApplyDebugScreenshotSize).
 /// </summary>
@@ -113,7 +113,7 @@ internal static class DebugCapture
                 {
                     After(1200, () =>
                     {
-                        var sheet = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w is Views.Alert or Views.PromptSheet or Views.PickClipSheet);
+                        var sheet = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w is Views.Alert or Views.PromptSheet or Views.PickClipSheet or Views.ExportSongsSheet or Views.ImportSongsSheet);
                         if (sheet is null) { Log.Warn("Screenshot: no sheet open"); return; }
                         var content = (FrameworkElement)window.Content;
                         var origin = content.PointToScreen(new Point(0, 0));
@@ -145,6 +145,13 @@ internal static class DebugCapture
                             shell.EnterEdit(null);
                             shell.Edit!.NewFromCompositionCommand.Execute(null);
                             break;
+                        case "export":
+                            Views.ExportSongsSheet.Pick(services.Library.Songs.OrderBy(x => x.Title), services.Library.Songs.OrderBy(x => x.Title).Take(3).Select(x => x.Id));
+                            break;
+                        case "import":
+                        case "importoff":
+                            ImportForCapture(services, connected: arg == "import");
+                            break;
                     }
                 });
                 return;
@@ -153,6 +160,33 @@ internal static class DebugCapture
                 Save(Composite(window), path);
                 return;
         }
+    }
+
+    /// <summary>The import sheet for a made-up file from the other campus: the library's songs (one renamed so it
+    /// comes in as new) against song-layer columns numbered differently from here, two of them sharing a column.</summary>
+    private static void ImportForCapture(AppServices services, bool connected)
+    {
+        var songs = services.Library.Songs.OrderBy(x => x.Title).Take(6).ToList();
+        var file = Core.Library.SongTransfer.Create(songs, exportedFrom: "NOVA-CITY-MEDIA");
+        file.ExportedAt = DateTimeOffset.Now.AddHours(-3);
+        file.Songs.Add(new Core.Library.TransferSong { Id = "capture-new", Title = "Goodness of God", DurationMs = 312_000, Fps = 25, FileName = "GoodnessOfGod_2688x512.mov",
+            Segments = { new() { Name = "Intro", StartMs = 0 }, new() { Name = "Verse 1", StartMs = 18_000 }, new() { Name = "Chorus", StartMs = 52_000 } } });
+        var clips = new List<Core.Resolume.ClipInfo>();
+        var names = new Dictionary<int, string>();
+        int col = 41;
+        foreach (var x in songs.Skip(1))
+        {
+            names[col] = x.Title.ToUpperInvariant();
+            clips.Add(new Core.Resolume.ClipInfo { ClipId = 9000 + col, Layer = services.Settings.SongLayer, Column = col, Name = x.Clip.ClipName, FilePath = $@"E:\Campus2\{x.Clip.FileName}", DurationMs = x.DurationMs, Fps = 30 });
+            col += 3;
+        }
+        names[col] = "Goodness of God";
+        clips.Add(new Core.Resolume.ClipInfo { ClipId = 9000 + col, Layer = services.Settings.SongLayer, Column = col, Name = "GoG_1920", FilePath = @"E:\Campus2\GoodnessOfGod_1920x1080.mov", DurationMs = 312_040, Fps = 30 });
+        if (!connected) clips.Clear();
+        var items = Services.SongTransferFlow.BuildItems(file, services.Library.Songs, _ => null, clips, c => names.TryGetValue(c, out var n) ? n : "");
+        if (connected && items.Count > 2 && items[2].SelectedColumn?.Clip is { } shared) items[1].SelectedColumn = items[1].Columns.First(c => c.Clip?.ClipId == shared.ClipId);   // show the shared-column warning
+        if (items.Count > 3) items[3].Include = false;
+        Views.ImportSongsSheet.Ask(file, items, connected, services.Settings.SongLayer);
     }
 
     /// <summary>Without Resolume running, "live" captures show a library song as if it were playing in its third

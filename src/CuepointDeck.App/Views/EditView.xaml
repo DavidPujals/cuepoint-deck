@@ -72,6 +72,9 @@
                                     <MenuItem Header="New Song from File…" Command="{Binding NewFromFileCommand}"/>
                                     <Separator/>
                                     <MenuItem Header="New Setlist…" Command="{Binding NewSetlistCommand}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Import Songs…" Command="{Binding ImportSongsCommand}"/>
+                                    <MenuItem Header="Export Songs…" Command="{Binding ExportSongsCommand}"/>
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
@@ -90,6 +93,8 @@
                                     <StackPanel Margin="2,0" Background="Transparent" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=ListBox}}">
                                         <StackPanel.ContextMenu>
                                             <ContextMenu>
+                                                <MenuItem Header="Export Song…" Command="{Binding PlacementTarget.Tag.ExportSongCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
+                                                <Separator/>
                                                 <MenuItem Header="Delete Song…" Style="{StaticResource DestructiveMenuItem}"
                                                           Command="{Binding PlacementTarget.Tag.DeleteSongCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding}"/>
                                             </ContextMenu>
@@ -174,7 +179,10 @@
                         <Button x:Name="MoreMenuButton" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE712;" app:Ui.DropDownMenu="True" Margin="4,0,0,0" ToolTip="More">
                             <Button.ContextMenu>
                                 <ContextMenu>
+                                    <MenuItem Header="Link to Column…" Command="{Binding LinkToColumnCommand}"/>
                                     <MenuItem Header="Render Missing Thumbnails" Command="{Binding RenderThumbnailsCommand}"/>
+                                    <Separator/>
+                                    <MenuItem Header="Export Song…" Command="{Binding ExportSongsCommand}" IsEnabled="{Binding CanDeleteSong}"/>
                                     <MenuItem Header="Show Library Folder" Command="{Binding OpenLibraryFolderCommand}"/>
                                     <Separator/>
                                     <MenuItem Header="Delete Song…" Style="{StaticResource DestructiveMenuItem}" Command="{Binding DeleteSongCommand}" IsEnabled="{Binding CanDeleteSong}"/>

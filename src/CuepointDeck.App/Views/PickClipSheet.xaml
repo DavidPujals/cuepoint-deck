@@ -9,7 +9,7 @@
     </Window.Resources>
     <Border Background="{StaticResource SheetBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="1">
         <StackPanel Margin="22,20,22,18">
-            <TextBlock Text="New Song from Resolume" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock x:Name="TitleText" Text="New Song from Resolume" FontSize="15" FontWeight="SemiBold"/>
             <TextBlock x:Name="HintText" Style="{StaticResource SecondaryText}" FontSize="13" Margin="0,4,0,0"/>
             <TextBox x:Name="Search" Style="{StaticResource SearchBox}" app:Ui.Placeholder="Search columns" Margin="0,14,0,8" TextChanged="Search_TextChanged"/>
             <ListBox x:Name="List" Height="320" MouseDoubleClick="List_MouseDoubleClick" SelectionChanged="List_SelectionChanged" Focusable="True">
