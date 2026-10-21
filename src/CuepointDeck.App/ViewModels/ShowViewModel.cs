@@ -49,6 +49,14 @@ public partial class ShowViewModel : ObservableObject
     [ObservableProperty] private bool _isUnknownClip;
     [ObservableProperty] private string _unknownClipName = "";
     [ObservableProperty] private string _emptyTitle = "No Song Live";
+
+    // ---- density (set by the window from its height)
+    [ObservableProperty] private bool _isCompact;
+    [ObservableProperty] private bool _isMinimal;
+    public bool ShowFullHeader => HasSong && !IsCompact;
+    public bool ShowSlimHeader => HasSong && IsCompact;
+    partial void OnIsCompactChanged(bool value) { OnPropertyChanged(nameof(ShowFullHeader)); OnPropertyChanged(nameof(ShowSlimHeader)); }
+    partial void OnHasSongChanged(bool value) { OnPropertyChanged(nameof(ShowFullHeader)); OnPropertyChanged(nameof(ShowSlimHeader)); }
     [ObservableProperty] private string _emptyMessage = "";
     [ObservableProperty] private double _clipProgress;
     [ObservableProperty] private string _elapsedText = "--:--";

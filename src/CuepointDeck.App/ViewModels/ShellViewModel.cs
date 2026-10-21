@@ -74,6 +74,14 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private bool _toastIsWarning;
     [ObservableProperty] private bool _toastVisible;
 
+    // ---- density: the window's height decides how much room the toolbar and header take
+    /// <summary>Under 720 px tall: a tighter toolbar (the setlist always stays in it) and a one-line song header.</summary>
+    [ObservableProperty] private bool _isCompact;
+    /// <summary>Under 460 px tall: the cards also become slim trigger tiles without thumbnails.</summary>
+    [ObservableProperty] private bool _isMinimal;
+    partial void OnIsCompactChanged(bool value) => Show.IsCompact = value;
+    partial void OnIsMinimalChanged(bool value) => Show.IsMinimal = value;
+
     // ---- content
     [ObservableProperty] private object? _currentView;
     [ObservableProperty] private bool _isShowMode = true;

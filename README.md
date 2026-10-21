@@ -31,7 +31,7 @@ on the real machines is listed under **What needs testing on the show PC** at th
 Since 0.4.0 the interface follows Apple's Human Interface Guidelines; [docs/DESIGN.md](docs/DESIGN.md) explains how.
 
 Screenshots from the development PC: [Show mode](docs/screenshots/show-mode.png),
-[a card's menu](docs/screenshots/show-mode-menu.png), [Edit mode](docs/screenshots/edit-mode.png),
+[a card's menu](docs/screenshots/show-mode-menu.png), [a short window](docs/screenshots/show-mode-short.png), [Edit mode](docs/screenshots/edit-mode.png),
 [a setlist](docs/screenshots/edit-setlist.png), [Settings](docs/screenshots/settings.png),
 [an alert](docs/screenshots/alert.png).
 
@@ -136,6 +136,12 @@ bottom of the window and never block a click.
   It never retries on its own.
 - Losing the connection clears any queue and dims the cards; the app reconnects every 2 s on its own.
 - Ctrl + and Ctrl − make the cards bigger or smaller; Ctrl+0 resets.
+- The window can be as short as 200 px in Show mode, so it can sit as a strip under Resolume. Under 720 px tall the
+  toolbar tightens, the setlist always stays in the toolbar row, and the song header becomes one slim line (title,
+  time, progress, time left). Under 460 px the cards become slim trigger tiles (number, name, loop, and the start time,
+  "Next" or the queue countdown) so a whole row of triggers still fits. Under 900 px wide the connection status shows
+  just its dot and the shortcuts button steps aside (F1 still works). Edit mode needs at least 400 px and the window
+  grows back to that when you switch to it.
 - Quitting asks first ("Quit Cuepoint Deck?", with Cancel as the default so a stray Return can't close the deck
   mid-service). "Don't ask again" turns it off; Settings → General turns it back on. Resolume keeps playing regardless.
 

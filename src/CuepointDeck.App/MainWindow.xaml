@@ -4,13 +4,24 @@
         xmlns:app="clr-namespace:CuepointDeck.App"
         xmlns:vm="clr-namespace:CuepointDeck.App.ViewModels"
         xmlns:views="clr-namespace:CuepointDeck.App.Views"
-        Title="Cuepoint Deck" Style="{StaticResource AppWindow}"
+        Title="Cuepoint Deck"
         Icon="/Assets/cuepointdeck.ico"
         Background="{StaticResource BgBrush}"
-        MinWidth="640" MinHeight="400"
+        MinWidth="640"
         Width="1400" Height="880"
         Topmost="{Binding AlwaysOnTop}"
         Activated="Window_Activated" PreviewKeyDown="Window_PreviewKeyDown" Closing="Window_Closing">
+    <!-- Show mode goes down to 200 px tall (a strip of trigger tiles); Edit mode needs 400 and the window grows back to it -->
+    <Window.Style>
+        <Style TargetType="Window" BasedOn="{StaticResource AppWindow}">
+            <Setter Property="MinHeight" Value="200"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsShowMode}" Value="False">
+                    <Setter Property="MinHeight" Value="400"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Style>
     <Window.Resources>
         <app:BoolToVisibilityConverter x:Key="Vis"/>
         <app:BoolToVisibilityConverter x:Key="VisInv" Invert="True"/>
@@ -70,8 +81,20 @@
         <!-- the setlist group: pop-up button + the songs in order -->
         <DataTemplate x:Key="SetlistBar" DataType="{x:Type vm:ShowViewModel}">
             <DockPanel>
-                <ComboBox x:Name="SetlistPicker" DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" Width="190" VerticalAlignment="Center" Margin="0,0,10,0"
-                          ToolTip="The setlist on show. Create and edit setlists in Edit mode."/>
+                <ComboBox x:Name="SetlistPicker" DockPanel.Dock="Left" ItemsSource="{Binding SetlistNames}" SelectedItem="{Binding ActiveSetlistName}" VerticalAlignment="Center" Margin="0,0,10,0"
+                          ToolTip="The setlist on show. Create and edit setlists in Edit mode.">
+                    <ComboBox.Style>
+                        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+                            <Setter Property="Width" Value="190"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompact}" Value="True"><Setter Property="Width" Value="150"/></DataTrigger>
+                                <DataTrigger Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Narrow}, ConverterParameter=900}" Value="Visible">
+                                    <Setter Property="Width" Value="128"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.Style>
+                </ComboBox>
                 <TextBlock x:Name="NoSetlists" DockPanel.Dock="Left" Text="No setlists yet. Make one in Edit mode." Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Focusable="False" VerticalAlignment="Center">
                     <ItemsControl ItemsSource="{Binding SetlistSongs}" ItemTemplate="{StaticResource SetlistSongTemplate}" Focusable="False">
@@ -101,9 +124,25 @@
     </Window.Resources>
 
     <Grid>
-        <DockPanel Margin="12,8,12,12">
+        <DockPanel>
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Setter Property="Margin" Value="12,8,12,12"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCompact}" Value="True"><Setter Property="Margin" Value="10,4,10,6"/></DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
             <!-- ===================================================================== toolbar -->
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Grid DockPanel.Dock="Top">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Margin" Value="0,0,0,10"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompact}" Value="True"><Setter Property="Margin" Value="0,0,0,5"/></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -119,7 +158,8 @@
                               ToolTip="Connection to Resolume">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="9" Height="9" Fill="{Binding LightBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding ConnectionText}" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ConnectionText}" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"
+                                   Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=900}"/>
                     </StackPanel>
                 </ToggleButton>
                 </StackPanel>
@@ -162,6 +202,13 @@
                                     <MultiDataTrigger.Conditions>
                                         <Condition Binding="{Binding IsShowMode}" Value="True"/>
                                         <Condition Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1100}" Value="Visible"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </MultiDataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsShowMode}" Value="True"/>
+                                        <Condition Binding="{Binding IsCompact}" Value="True"/>
                                     </MultiDataTrigger.Conditions>
                                     <Setter Property="Visibility" Value="Visible"/>
                                 </MultiDataTrigger>
@@ -238,6 +285,7 @@
                     </Border>
 
                     <ToggleButton x:Name="ShortcutsButton" Style="{StaticResource IconButton}" app:Ui.Icon="&#xE765;" ToolTip="Keyboard shortcuts (F1)"
+                                  Visibility="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=900}"
                                   IsChecked="{Binding IsShortcutsOpen, Mode=TwoWay}" IsHitTestVisible="{Binding IsOpen, ElementName=ShortcutsPopup, Converter={StaticResource Not}}"/>
                     <Popup x:Name="ShortcutsPopup" Style="{StaticResource PopoverPopup}" PlacementTarget="{Binding ElementName=ShortcutsButton}" Placement="Bottom" HorizontalOffset="-398"
                            IsOpen="{Binding IsShortcutsOpen, Mode=TwoWay}">
@@ -286,6 +334,7 @@
                             <MultiDataTrigger>
                                 <MultiDataTrigger.Conditions>
                                     <Condition Binding="{Binding IsShowMode}" Value="True"/>
+                                    <Condition Binding="{Binding IsCompact}" Value="False"/>
                                     <Condition Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Narrow}, ConverterParameter=1100}" Value="Visible"/>
                                 </MultiDataTrigger.Conditions>
                                 <Setter Property="Visibility" Value="Visible"/>

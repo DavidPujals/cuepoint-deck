@@ -23,6 +23,15 @@ public partial class MainWindow : Window, Views.IDimmable
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () => Focus());
         };
         Loaded += (_, _) => Focus();
+        SizeChanged += (_, _) => UpdateDensity();
+    }
+
+    /// <summary>Short windows give the trigger cards the room: tighter chrome under 720 px, slim tiles under 460 px.</summary>
+    private void UpdateDensity()
+    {
+        var h = ActualHeight;
+        _vm.IsCompact = h < 720;
+        _vm.IsMinimal = h < 460;
     }
 
     public void SetDimmed(bool dimmed) => DimLayer.Visibility = dimmed ? Visibility.Visible : Visibility.Collapsed;
