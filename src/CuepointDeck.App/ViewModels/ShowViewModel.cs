@@ -87,8 +87,9 @@ public partial class ShowViewModel : ObservableObject
         _shell = shell;
         _dispatcher = dispatcher;
 
-        _services.LiveChanged += () => Post(RefreshLive);
-        _services.MatchesChanged += () => Post(RefreshLive);
+        // Resolume reports clip states one at a time (a column launch is a burst of them); one refresh per burst is enough.
+        _services.LiveChanged += RequestRefreshLive;
+        _services.MatchesChanged += RequestRefreshLive;
         _services.SettingsChanged += () => Post(() => { HookController(); ApplySettings(); });
         _services.LibraryChanged += () => Post(RefreshSetlists);
         HookController();
@@ -108,7 +109,7 @@ public partial class ShowViewModel : ObservableObject
         var ctl = _services.Controller;
         if (ReferenceEquals(ctl, _hooked)) return;
         _hooked = ctl;
-        ctl.CurrentSongChanged += _ => Post(RefreshLive);
+        ctl.CurrentSongChanged += _ => RequestRefreshLive();
         ctl.QueueChanged += () => Post(RefreshQueue);
         ctl.LoopChanged += () => Post(RefreshLoop);
         ctl.Rejected += r => Post(() => OnRejected(r));
@@ -116,6 +117,35 @@ public partial class ShowViewModel : ObservableObject
     }
 
     private void Post(Action a) => _dispatcher.BeginInvoke(a);
+
+    private int _refreshPending;
+    /// <summary>Asks for one <see cref="RefreshLive"/> on the UI thread; requests made before it runs share it.</summary>
+    private void RequestRefreshLive()
+    {
+        if (Interlocked.Exchange(ref _refreshPending, 1) == 1) return;
+        _dispatcher.BeginInvoke(() => { Volatile.Write(ref _refreshPending, 0); RefreshLive(); });
+    }
+
+    private bool _active = true;
+    /// <summary>The 30 Hz display timer runs only while Show mode is on screen; the trigger engine never depends on it.</summary>
+    public void SetActive(bool active)
+    {
+        if (_active == active) return;
+        _active = active;
+        if (active) { _liveIndex = -2; _nextIndex = -2; Tick(); _timer.Start(); }
+        else _timer.Stop();
+    }
+
+    private static readonly HexToBrushConverter Hex = new();
+    private static Brush BrushOf(string hex) => (Brush)Hex.Convert(hex, typeof(Brush), null!, null!);
+    private int ThumbWidth => (int)(480 * Math.Max(1, CardScale));
+
+    /// <summary>Fills in a card's thumbnail once it has loaded off the UI thread (or refreshes a stale cached one).</summary>
+    private static async Task LoadThumbAsync(SegmentCardViewModel card, string path, int width)
+    {
+        var image = await ThumbCache.GetAsync(path, width);
+        if (!ReferenceEquals(card.Thumb, image)) card.Thumb = image;
+    }
 
     private void ApplySettings()
     {
@@ -227,23 +257,26 @@ public partial class ShowViewModel : ObservableObject
         SongSubtitle = match?.Clip is { } c ? $"{c.Location}  ·  {song.Segments.Count} segments  ·  {Timecode.Format(song.DurationMs, song.Fps)}" + (match.Ambiguous ? $"  ·  ⚠ {match.Warning}" : "")
                                               : "Not in the composition";
         var lib = _services.Library;
+        var width = ThumbWidth;
+        var cutFirst = _services.Settings.DefaultTrigger == TriggerMode.Cut;
         for (int i = 0; i < song.Segments.Count; i++)
         {
             var seg = song.Segments[i];
             var thumbPath = seg.Thumb is null ? null : lib.ResolveLibraryPath(seg.Thumb);
-            var image = thumbPath is null ? null : ThumbCache.Get(thumbPath, (int)(480 * Math.Max(1, CardScale)));
+            // From memory at once; the disk (maybe a share) is only read in the background, so a song comes up without
+            // the UI waiting on it.
             var key = i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "";
-            var cutFirst = _services.Settings.DefaultTrigger == TriggerMode.Cut;
-            Cards.Add(new SegmentCardViewModel(this, song, seg, i, image)
+            var card = new SegmentCardViewModel(this, song, seg, i, ThumbCache.Peek(thumbPath, width))
             {
                 CutGesture = key.Length == 0 ? "" : cutFirst ? key : "Shift+" + key,
                 QueueGesture = key.Length == 0 ? "" : cutFirst ? "Shift+" + key : key,
-            });
+            };
+            Cards.Add(card);
+            if (thumbPath is not null) _ = LoadThumbAsync(card, thumbPath, width);
         }
         var dur = Math.Max(1, (double)song.DurationMs);
         Ticks = song.Segments.Select(s => Math.Clamp(s.StartMs / dur, 0, 1)).ToList();
-        var conv = new HexToBrushConverter();
-        TickColors = song.Segments.Select(s => (Brush)conv.Convert(s.Color, typeof(Brush), null!, null!)).ToList();
+        TickColors = song.Segments.Select(s => BrushOf(s.Color)).ToList();
         var gaps = new List<(double, double)>();
         for (int i = 0; i < song.Segments.Count; i++)
         {
@@ -305,11 +338,7 @@ public partial class ShowViewModel : ObservableObject
         {
             _liveIndex = live; _nextIndex = next;
             foreach (var card in Cards) { card.IsLive = card.Index == live; card.IsNext = card.Index == next; }
-            if (live >= 0 && live < Cards.Count)
-            {
-                var conv = new HexToBrushConverter();
-                ProgressFill = (Brush)conv.Convert(song.Segments[live].Color, typeof(Brush), null!, null!);
-            }
+            if (live >= 0 && live < Cards.Count) ProgressFill = BrushOf(song.Segments[live].Color);
         }
         foreach (var card in Cards)
         {
@@ -400,8 +429,13 @@ public partial class ShowViewModel : ObservableObject
         _suppressSetlistChange = true;
         try
         {
-            SetlistNames.Clear();
-            foreach (var s in lib.Setlists) SetlistNames.Add(s.Name);
+            // Only rebuilt when the names changed, so the toolbar's setlist menu doesn't flicker on every save.
+            var names = lib.Setlists.Select(s => s.Name).ToList();
+            if (!names.SequenceEqual(SetlistNames))
+            {
+                SetlistNames.Clear();
+                foreach (var n in names) SetlistNames.Add(n);
+            }
             var wanted = _services.Settings.ActiveSetlist;
             ActiveSetlistName = wanted is not null && SetlistNames.Contains(wanted) ? wanted : SetlistNames.FirstOrDefault();
         }
@@ -439,6 +473,19 @@ public partial class ShowViewModel : ObservableObject
         SelectedSetlistIndex = -1;
         if (idx >= 0) SetSelected(idx);
         RefreshLive();
+        PrefetchThumbs();
+    }
+
+    /// <summary>Warms the thumbnail cache for every song in the setlist, one file at a time in the background, so each
+    /// song's cards come up complete the moment it goes live.</summary>
+    private void PrefetchThumbs()
+    {
+        var lib = _services.Library;
+        var width = ThumbWidth;
+        var paths = SetlistSongs.Where(i => i.Song is not null).SelectMany(i => i.Song!.Segments)
+                                .Where(s => s.Thumb is not null).Select(s => lib.ResolveLibraryPath(s.Thumb!)).ToList();
+        if (paths.Count == 0) return;
+        _ = Task.Run(async () => { foreach (var p in paths) await ThumbCache.GetAsync(p, width).ConfigureAwait(false); });
     }
 
     private static string ItemKey(SetlistSongItem i) => i.Clip is not null ? "clip:" + i.Clip.ClipId : "song:" + i.Song?.Id;

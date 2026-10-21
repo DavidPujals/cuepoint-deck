@@ -37,7 +37,7 @@ public sealed class PlayheadEstimator
         lock (_gate)
         {
             // Re-anchor so the speed change applies from now, not from the last update.
-            if (_hasFix) { _lastMs = EstimateLocked(Stopwatch.GetTimestamp()); _lastStamp = Stopwatch.GetTimestamp(); }
+            if (_hasFix) { var now = Stopwatch.GetTimestamp(); _lastMs = EstimateLocked(now); _lastStamp = now; }
             _speed = speed;
             _paused = paused;
         }

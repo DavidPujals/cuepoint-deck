@@ -100,10 +100,15 @@ public partial class SetlistsViewModel : ObservableObject
 
     public void Reload(string? select)
     {
-        _loading = true;
-        Names.Clear();
-        foreach (var s in _services.Library.Setlists.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase)) Names.Add(s.Name);
-        _loading = false;
+        // Rebuilt only when the names really changed, so the sidebar keeps its selection after a save.
+        var names = _services.Library.Setlists.Select(s => s.Name).OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).ToList();
+        if (!names.SequenceEqual(Names))
+        {
+            _loading = true;
+            Names.Clear();
+            foreach (var n in names) Names.Add(n);
+            _loading = false;
+        }
         RefreshSources();
         SelectedName = select is not null && Names.Contains(select) ? select : SelectedName is not null && Names.Contains(SelectedName) ? SelectedName : null;
         LoadEntries();
@@ -119,10 +124,23 @@ public partial class SetlistsViewModel : ObservableObject
 
     private void LoadEntries()
     {
-        Entries.Clear();
         var setlist = SelectedName is null ? null : _services.Library.GetSetlist(SelectedName);
-        if (setlist is not null)
-            foreach (var id in setlist.SongIds) { var song = _services.Library.GetSong(id); if (song is not null) Entries.Add(new SetlistEntry { Song = song }); }
+        var songs = setlist is null ? new List<Song>()
+                  : setlist.SongIds.Select(id => _services.Library.GetSong(id)).Where(s => s is not null).Select(s => s!).ToList();
+        // Our own save comes back through here: when the running order on screen is already what was saved, leave it
+        // (and its selection and "Saved" status) alone.
+        if (songs.Count == Entries.Count && songs.Select((s, i) => ReferenceEquals(s, Entries[i].Song)).All(x => x))
+        {
+            RefreshActive();
+            return;
+        }
+        var keepId = SelectedEntry?.Song.Id;
+        var keepIndex = SelectedEntry is null ? -1 : Entries.IndexOf(SelectedEntry);
+        Entries.Clear();
+        foreach (var song in songs) Entries.Add(new SetlistEntry { Song = song });
+        if (keepId is not null)
+            SelectedEntry = keepIndex >= 0 && keepIndex < Entries.Count && Entries[keepIndex].Song.Id == keepId ? Entries[keepIndex]
+                          : Entries.FirstOrDefault(e => e.Song.Id == keepId);
         Renumber();
         RefreshActive();
         Status = "";

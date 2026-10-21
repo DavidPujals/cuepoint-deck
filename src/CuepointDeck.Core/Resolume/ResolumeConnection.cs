@@ -88,8 +88,9 @@ public sealed class ResolumeConnection : IResolumeLink, IAsyncDisposable
             ResolumeSocket? socket = null;
             try
             {
-                _rest?.Dispose();
-                _rest = new ResolumeRest(EffectiveHost, Port);
+                // One HTTP client for the life of this connection: a new one every 2 s retry would leave a trail of
+                // sockets in TIME_WAIT through a long outage.
+                _rest ??= new ResolumeRest(EffectiveHost, Port);
                 using var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 connectTimeout.CancelAfter(TimeSpan.FromSeconds(5));
 
@@ -143,15 +144,19 @@ public sealed class ResolumeConnection : IResolumeLink, IAsyncDisposable
 
     // ------------------------------------------------------------------ inbound
 
-    private void OnRawMessage(string text, long stamp)
+    private void OnRawMessage(ReadOnlyMemory<byte> utf8, long stamp)
     {
+        // Parsed straight from the socket's buffer and handled before it returns, so nothing here outlives the document
+        // and no copy of it is needed. Handlers read the values they need into their own objects.
+        JsonDocument doc;
         ParameterMessage msg;
         try
         {
-            using var doc = JsonDocument.Parse(text);
-            msg = ParameterMessage.Parse(doc.RootElement.Clone());
+            doc = JsonDocument.Parse(utf8);
+            msg = ParameterMessage.Parse(doc.RootElement);
         }
-        catch (Exception ex) { Log.Warn($"Unreadable message from Resolume ({text.Length} bytes): {ex.Message}"); return; }
+        catch (Exception ex) { Log.Warn($"Unreadable message from Resolume ({utf8.Length} bytes): {ex.Message}"); return; }
+        using var _ = doc;
 
         try
         {
@@ -167,7 +172,7 @@ public sealed class ResolumeConnection : IResolumeLink, IAsyncDisposable
                 case "effects_update":
                 case "thumbnail_update":
                 case "parameter_unsubscribed": break;
-                default: Log.Info($"Unhandled message type '{msg.Type}' ({text.Length} bytes)"); break;
+                default: Log.Info($"Unhandled message type '{msg.Type}' ({utf8.Length} bytes)"); break;
             }
         }
         catch (Exception ex) { Log.Error($"Handling '{msg.Type}' message", ex); }

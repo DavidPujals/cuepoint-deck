@@ -84,7 +84,7 @@ public partial class ShellViewModel : ObservableObject
     [ObservableProperty] private object? _currentView;
     [ObservableProperty] private bool _isShowMode = true;
     public bool IsEditMode => !IsShowMode;
-    partial void OnIsShowModeChanged(bool value) => OnPropertyChanged(nameof(IsEditMode));
+    partial void OnIsShowModeChanged(bool value) { OnPropertyChanged(nameof(IsEditMode)); Show.SetActive(value && !_minimized); }
 
     public string PinToolTip => AlwaysOnTop ? "Kept on top of Resolume. Click to let other windows cover Cuepoint Deck." : "Keep on Top: stay above Resolume when you click away.";
 
@@ -111,8 +111,8 @@ public partial class ShellViewModel : ObservableObject
         AlwaysOnTop = services.Settings.AlwaysOnTop;
 
         Log.Written += (_, line) => { lock (_logGate) _pendingLog.Add(line); };
-        _services.LiveChanged += () => Post(RefreshStatus);
-        _services.MatchesChanged += () => Post(RefreshStatus);
+        _services.LiveChanged += RequestRefreshStatus;
+        _services.MatchesChanged += RequestRefreshStatus;
         _services.LibraryChanged += () => Post(RefreshIssues);
         _services.SettingsChanged += () => Post(() => { AlwaysOnTop = _services.Settings.AlwaysOnTop; RefreshStatus(); OnPropertyChanged(nameof(Shortcuts)); });
         _services.StatusMessage += m => Post(() => ShowToast(m, warn: true));
@@ -121,12 +121,27 @@ public partial class ShellViewModel : ObservableObject
         CurrentView = Show;
 
         _toastTimer.Tick += (_, _) => { _toastTimer.Stop(); ToastVisible = false; };
-        _timer.Tick += (_, _) => { FlushLog(); RefreshIssues(); };
+        // The log flushes four times a second; the issue list is event-driven and re-checked every 2 s as a safety net
+        // (ffmpeg's start-up check, for one, finishes without an event).
+        _timer.Tick += (_, _) => { FlushLog(); if (++_ticks % 8 == 0) RefreshIssues(); };
         _timer.Start();
         RefreshStatus();
     }
 
     private void Post(Action a) => _dispatcher.BeginInvoke(a);
+
+    private int _ticks;
+    private int _statusPending;
+    /// <summary>One toolbar refresh per burst of connection events (a column launch changes many clips at once).</summary>
+    private void RequestRefreshStatus()
+    {
+        if (Interlocked.Exchange(ref _statusPending, 1) == 1) return;
+        _dispatcher.BeginInvoke(() => { Volatile.Write(ref _statusPending, 0); RefreshStatus(); });
+    }
+
+    private bool _minimized;
+    /// <summary>The window was minimised or restored: Show mode's display timer has nothing to draw while minimised.</summary>
+    public void SetMinimized(bool minimized) { _minimized = minimized; Show.SetActive(IsShowMode && !_minimized); }
 
     // ------------------------------------------------------------------ connection and issues
 
@@ -208,6 +223,7 @@ public partial class ShellViewModel : ObservableObject
     private EditViewModel EnsureEdit()
     {
         if (Edit is null) { Edit = new EditViewModel(_services, this, _dispatcher); OnPropertyChanged(nameof(Edit)); }
+        Edit.SetActive(true);   // catches up on anything that changed while Show mode was on screen
         return Edit;
     }
 
@@ -248,6 +264,7 @@ public partial class ShellViewModel : ObservableObject
         if (Edit is not null && !Edit.CanLeave()) return;
         CurrentView = Show;
         IsShowMode = true;
+        Edit?.SetActive(false);
         RefreshIssues();
         Log.Info("Show mode");
     }

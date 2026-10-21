@@ -101,9 +101,20 @@ public partial class SegmentEditItem : ObservableObject
     [ObservableProperty] private string _draftText = "";
     public bool ThumbNeedsUpdate => Segment.Thumb is null || Segment.ThumbAtMs != Segment.StartMs;
 
+    private async Task LoadThumbAsync(string path)
+    {
+        var image = await ThumbCache.GetAsync(path, 320);
+        if (_thumbPath == path && !ReferenceEquals(Thumb, image)) Thumb = image;
+    }
+
+    private string? _thumbPath;
+
     public void RefreshThumb(SongLibrary lib)
     {
-        Thumb = Segment.Thumb is null ? null : ThumbCache.Get(lib.ResolveLibraryPath(Segment.Thumb), 320);
+        // From memory straight away; the file (maybe on a share) is checked and decoded off the UI thread.
+        var path = _thumbPath = Segment.Thumb is null ? null : lib.ResolveLibraryPath(Segment.Thumb);
+        Thumb = ThumbCache.Peek(path, 320);
+        if (path is not null) _ = LoadThumbAsync(path);
         ThumbStatus = Segment.Thumb is null ? "No thumbnail yet" : ThumbNeedsUpdate ? "Thumbnail out of date" : "";
         OnPropertyChanged(nameof(ThumbNeedsUpdate));
     }
@@ -116,7 +127,8 @@ public sealed class FilmstripFrame
     public required string Path { get; init; }
     public required double Fps { get; init; }
     public string TimeText => Timecode.Format(TimeMs, Fps);
-    public BitmapImage? Image => ThumbCache.Get(Path, 320);
+    /// <summary>Decoded once, off the UI thread, at about the size the strip shows it.</summary>
+    public BitmapImage? Image { get; init; }
 }
 
 /// <summary>A clip on the song layer that a new song can be built from, named after its Resolume column.</summary>
@@ -222,7 +234,8 @@ public partial class EditViewModel : ObservableObject
     [ObservableProperty] private string _playheadHint = "";
 
     // ---- preview player / scrubber
-    public ObservableCollection<FilmstripFrame> Frames { get; } = new();
+    /// <summary>Replaced as a whole when a song's frames are ready, so the strip lays out once rather than per frame.</summary>
+    [ObservableProperty] private ObservableCollection<FilmstripFrame> _frames = new();
     [ObservableProperty] private double _scrubMs;
     [ObservableProperty] private string _scrubText = "00:00:00:00";
     [ObservableProperty] private BitmapImage? _previewImage;
@@ -249,17 +262,64 @@ public partial class EditViewModel : ObservableObject
         _shell = shell;
         _dispatcher = dispatcher;
         Setlists = new SetlistsViewModel(services, shell);
-        _services.LibraryChanged += () => _dispatcher.BeginInvoke(() => { RefreshSongList(); Setlists.Reload(Setlists.SelectedName); });
-        _services.LiveChanged += () => _dispatcher.BeginInvoke(RefreshClipStatus);
-        _services.MatchesChanged += () => _dispatcher.BeginInvoke(() => { RefreshClipStatus(); Setlists.RefreshSources(); });
-        _services.SettingsChanged += () => _dispatcher.BeginInvoke(() => Setlists.RefreshActive());
+        // While Show mode is on screen these only note that something changed; Edit catches up when it is opened.
+        _services.LibraryChanged += () => _dispatcher.BeginInvoke(DispatcherPriority.Background, () => { if (Stale()) return; RefreshSongList(); Setlists.Reload(Setlists.SelectedName); });
+        _services.LiveChanged += RequestClipStatus;
+        _services.MatchesChanged += () => _dispatcher.BeginInvoke(DispatcherPriority.Background, () => { if (Stale()) return; RefreshClipStatus(); Setlists.RefreshSources(); });
+        _services.SettingsChanged += () => _dispatcher.BeginInvoke(() => { if (Stale()) return; Setlists.RefreshActive(); });
         RefreshSongList();
-        RefreshCompositionClips();
         _timer.Tick += (_, _) => TickPlayhead();
-        _timer.Start();
     }
 
-    public void Stop() { _timer.Stop(); _filmstripCts?.Cancel(); _suggestCts?.Cancel(); IsPlaying = false; }
+    private bool _active;
+    private bool _stale;
+    private bool Stale() { if (_active) return false; _stale = true; return true; }
+
+    private int _clipStatusPending;
+    /// <summary>One clip-status refresh per burst of Resolume events.</summary>
+    private void RequestClipStatus()
+    {
+        if (Interlocked.Exchange(ref _clipStatusPending, 1) == 1) return;
+        _dispatcher.BeginInvoke(DispatcherPriority.Background, () => { Volatile.Write(ref _clipStatusPending, 0); if (!Stale()) RefreshClipStatus(); });
+    }
+
+    /// <summary>Edit mode came on screen (true) or gave way to Show mode (false). The playhead readout and the event
+    /// handlers only run while it is on screen.</summary>
+    public void SetActive(bool active)
+    {
+        if (_active == active) return;
+        _active = active;
+        if (active)
+        {
+            if (_stale)
+            {
+                _stale = false;
+                RefreshSongList();
+                Setlists.Reload(Setlists.SelectedName);
+                Setlists.RefreshSources();
+                Setlists.RefreshActive();
+            }
+            RefreshClipStatus();
+            TickPlayhead();
+            _timer.Start();
+        }
+        else
+        {
+            _timer.Stop();
+            _exactFrameCts?.Cancel();
+            IsPlaying = false;
+        }
+    }
+
+    /// <summary>Stops everything running for the open song: preview building, suggestions, the exact-frame lookup.</summary>
+    private void CancelSongWork()
+    {
+        _filmstripCts?.Cancel();
+        _suggestCts?.Cancel();
+        _exactFrameCts?.Cancel();
+    }
+
+    public void Stop() { _timer.Stop(); CancelSongWork(); IsPlaying = false; }
 
     // ------------------------------------------------------------------ sidebar
 
@@ -280,7 +340,6 @@ public partial class EditViewModel : ObservableObject
             if (keep is not null && IsSongView) SelectedSongItem = Songs.FirstOrDefault(i => i.Song.Id == keep);
         }
         finally { _suppressSelect = false; }
-        RefreshCompositionClips();
     }
 
     partial void OnSelectedSongItemChanged(SongListItem? value)
@@ -430,8 +489,7 @@ public partial class EditViewModel : ObservableObject
 
     private void Load(Song song, bool isNew)
     {
-        _filmstripCts?.Cancel();
-        _suggestCts?.Cancel();
+        CancelSongWork();
         IsPlaying = false;
         ProxyPath = null;
         _song = song;
@@ -456,7 +514,15 @@ public partial class EditViewModel : ObservableObject
         SelectedSegment = Segments.FirstOrDefault();
         View = "song";
         SelectSidebarSong(isNew ? null : song.Id);
-        _ = PrepareScrubberAsync();
+        _ = Safe(PrepareScrubberAsync(), "Preparing the preview");
+    }
+
+    /// <summary>Logs a background task's failure instead of losing it (and leaving a status line stuck).</summary>
+    private async Task Safe(Task task, string what)
+    {
+        try { await task; }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Error(what, ex); ScrubStatus = ""; }
     }
 
     private void RefreshSegmentCount() => SegmentCountText = Segments.Count == 0 ? "" : Segments.Count == 1 ? "1" : Segments.Count.ToString();
@@ -484,7 +550,6 @@ public partial class EditViewModel : ObservableObject
             if (_song.DurationMs == 0 && clip.DurationMs > 0) { _song.DurationMs = (long)Math.Round(clip.DurationMs); changed = true; }
             if (changed) RaiseTimeFormat();
         }
-        RefreshCompositionClips();
     }
 
     private ClipInfo? FindClip()
@@ -619,9 +684,10 @@ public partial class EditViewModel : ObservableObject
     {
         var clip = FindClip();
         var watched = _services.Connection.WatchedClip;
-        var available = clip is not null && watched is not null && clip.ClipId == watched.ClipId && clip.IsConnected && _services.Estimator.EstimateMs() is not null;
+        var est = _services.Estimator.EstimateMs();
+        var available = clip is not null && watched is not null && clip.ClipId == watched.ClipId && clip.IsConnected && est is not null;
         PlayheadAvailable = available;
-        PlayheadText = available ? Timecode.Format(_services.Estimator.EstimateMs()!.Value, Fps) : "--:--:--:--";
+        PlayheadText = available ? Timecode.Format(est!.Value, Fps) : "--:--:--:--";
         PlayheadHint = available ? (_services.Estimator.IsPaused ? "paused" : "playing") : clip is null ? "not in the composition" : !clip.IsConnected ? "not live; start it in Resolume to mark by ear" : "";
     }
 
@@ -653,7 +719,13 @@ public partial class EditViewModel : ObservableObject
         if (_song is null) return;
         ScrubMs = 0;
 
-        _localSourceFile = ResolveLocalFile();
+        var song = _song;
+        var candidates = LocalFileCandidates();
+        string? local;
+        try { local = await Task.Run(() => candidates.FirstOrDefault(File.Exists)); }
+        catch { local = null; }
+        if (!ReferenceEquals(_song, song)) return;
+        _localSourceFile = local;
         if (_localSourceFile is null)
         {
             var mapper = new PathMapper(_services.Settings.PathMappings);
@@ -670,20 +742,29 @@ public partial class EditViewModel : ObservableObject
             return;
         }
 
-        var dir = FilmstripDir(_song, _localSourceFile);
-        _filmstripDir = dir;
         var cts = _filmstripCts = new CancellationTokenSource();
-        var song = _song;
+        var source = _localSourceFile;
+        var fps = Fps;
+        string dir;
+        bool built;
+        try { (dir, built) = await Task.Run(() => { var d = FilmstripDir(song, source); PruneExactFrames(d); return (d, File.Exists(Path.Combine(d, "done.txt"))); }); }
+        catch (Exception ex) { ScrubStatus = $"The preview frames failed: {ex.Message}"; return; }
+        if (cts.IsCancellationRequested || !ReferenceEquals(_song, song)) return;
+        _filmstripDir = dir;
 
-        if (!File.Exists(Path.Combine(dir, "done.txt")))
+        if (!built)
         {
             ScrubStatus = "Building preview frames…";
-            var result = await _services.Ffmpeg.FilmstripAsync(_localSourceFile, dir, 2, cts.Token);
+            var result = await _services.Ffmpeg.FilmstripAsync(source, dir, 2, cts.Token);
             if (cts.IsCancellationRequested) return;
             if (!result.Ok) { ScrubStatus = $"The preview frames failed: {result.Error}"; return; }
         }
-        var files = Directory.GetFiles(dir, "*.jpg").OrderBy(f => f).ToList();
-        for (int i = 0; i < files.Count; i++) Frames.Add(new FilmstripFrame { Index = i, TimeMs = i * 2000.0, Path = files[i], Fps = Fps });
+        List<FilmstripFrame> frames;
+        try { frames = await Task.Run(() => LoadFrames(dir, fps, cts.Token), cts.Token); }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex) { ScrubStatus = $"The preview frames couldn't be read: {ex.Message}"; return; }
+        if (cts.IsCancellationRequested || !ReferenceEquals(_song, song)) return;
+        Frames = new ObservableCollection<FilmstripFrame>(frames);
         ScrubberAvailable = Frames.Count > 0;
         ScrubStatus = "Building the preview video…";
         if (SelectedSegment is not null && Math.Abs(ScrubMs - SelectedSegment.StartMs) > 0.5) ScrubMs = SelectedSegment.StartMs;
@@ -691,7 +772,7 @@ public partial class EditViewModel : ObservableObject
 
         // The proxy video: real play/pause and instant frame stepping once it exists.
         var proxy = Path.Combine(dir, "preview.mp4");
-        var pr = await _services.Ffmpeg.PreviewProxyAsync(_localSourceFile, proxy, cts.Token);
+        var pr = await _services.Ffmpeg.PreviewProxyAsync(source, proxy, cts.Token);
         if (cts.IsCancellationRequested || !ReferenceEquals(_song, song)) return;
         if (pr.Ok)
         {
@@ -702,6 +783,50 @@ public partial class EditViewModel : ObservableObject
         else ScrubStatus = $"The preview video failed ({pr.Error}); stepping uses stills.";
     }
 
+    /// <summary>Exact frames are pulled one per settled scrub position and would pile up in the library forever;
+    /// keep the most recent couple of hundred per song.</summary>
+    private static void PruneExactFrames(string filmstripDir)
+    {
+        try
+        {
+            var exact = new DirectoryInfo(Path.Combine(filmstripDir, "exact"));
+            if (!exact.Exists) return;
+            var files = exact.GetFiles("*.jpg");
+            if (files.Length <= 300) return;
+            foreach (var f in files.OrderByDescending(f => f.LastWriteTimeUtc).Skip(200))
+                try { f.Delete(); } catch { }
+        }
+        catch { /* only housekeeping */ }
+    }
+
+    /// <summary>The strip's stills, each decoded once at about the size it is shown (the strip is 52 px tall).</summary>
+    private static List<FilmstripFrame> LoadFrames(string dir, double fps, CancellationToken ct)
+    {
+        var files = Directory.GetFiles(dir, "*.jpg").OrderBy(f => f, StringComparer.Ordinal).ToList();
+        var frames = new List<FilmstripFrame>(files.Count);
+        int width = 0;
+        for (int i = 0; i < files.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            BitmapImage? image = null;
+            try
+            {
+                if (width == 0)
+                {
+                    // The first still sets the size for the rest: twice the shown height, in the clip's own shape.
+                    var first = ThumbCache.Decode(files[i], 0);
+                    var aspect = first.PixelHeight > 0 ? first.PixelWidth / (double)first.PixelHeight : 16 / 9.0;
+                    width = Math.Clamp((int)Math.Ceiling(104 * aspect), 64, first.PixelWidth);
+                    image = width >= first.PixelWidth ? first : ThumbCache.Decode(files[i], width);
+                }
+                else image = ThumbCache.Decode(files[i], width);
+            }
+            catch { /* a damaged still shows as a gap */ }
+            frames.Add(new FilmstripFrame { Index = i, TimeMs = i * 2000.0, Path = files[i], Fps = fps, Image = image });
+        }
+        return frames;
+    }
+
     private string FilmstripDir(Song song, string file)
     {
         var fi = new FileInfo(file);
@@ -709,15 +834,24 @@ public partial class EditViewModel : ObservableObject
         return Path.Combine(_services.Library.ThumbDir(song.Id), key + ".filmstrip");
     }
 
-    private string? ResolveLocalFile()
+    /// <summary>Paths this PC might open the song's media at, best first. Checking them is disk (maybe network) work,
+    /// so callers do that off the UI thread.</summary>
+    private List<string> LocalFileCandidates()
     {
-        if (_song is null) return null;
-        var mapper = new PathMapper(_services.Settings.PathMappings);
         var candidates = new List<string>();
+        if (_song is null) return candidates;
+        var mapper = new PathMapper(_services.Settings.PathMappings);
         var clip = FindClip();
         if (clip is not null && !string.IsNullOrEmpty(clip.FilePath)) candidates.AddRange(mapper.Variants(clip.FilePath));
         candidates.AddRange(mapper.Variants(_song.Clip.FilePath));
-        return candidates.FirstOrDefault(File.Exists);
+        return candidates;
+    }
+
+    private async Task<string?> ResolveLocalFileAsync()
+    {
+        var candidates = LocalFileCandidates();
+        try { return await Task.Run(() => candidates.FirstOrDefault(File.Exists)); }
+        catch { return null; }
     }
 
     partial void OnScrubMsChanged(double value)
@@ -741,9 +875,19 @@ public partial class EditViewModel : ObservableObject
     private void UpdatePreview()
     {
         if (Frames.Count == 0) { PreviewImage = null; PreviewKind = ""; return; }
-        var idx = Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1);
-        PreviewImage = ThumbCache.Get(Frames[idx].Path, 480);
+        var frame = Frames[Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1)];
+        var full = ThumbCache.Peek(frame.Path, 320);
+        PreviewImage = full ?? frame.Image;
         PreviewKind = "nearest still";
+        if (full is null) _ = LoadStillAsync(frame);
+    }
+
+    /// <summary>The nearest still at full size, once it has loaded, if the scrubber is still near it.</summary>
+    private async Task LoadStillAsync(FilmstripFrame frame)
+    {
+        var image = await ThumbCache.GetAsync(frame.Path, 320);
+        if (image is null || PreviewKind != "nearest still" || Frames.Count == 0) return;
+        if (ReferenceEquals(Frames[Math.Clamp((int)(ScrubMs / 2000.0), 0, Frames.Count - 1)], frame)) PreviewImage = image;
     }
 
     /// <summary>Without the proxy: after the scrubber settles, pull the exact frame with ffmpeg.</summary>
@@ -763,7 +907,10 @@ public partial class EditViewModel : ObservableObject
                 if (!r.Ok || cts.IsCancellationRequested) return;
             }
             if (cts.IsCancellationRequested || Math.Abs(ScrubMs - ms) > 0.5 || ProxyPath is not null) return;
-            PreviewImage = ThumbCache.Get(path, 480);
+            // A one-off frame: decoded off the UI thread and kept out of the shared cache.
+            var image = await ThumbCache.LoadUncachedAsync(path, 480);
+            if (image is null || cts.IsCancellationRequested || Math.Abs(ScrubMs - ms) > 0.5 || ProxyPath is not null) return;
+            PreviewImage = image;
             PreviewKind = "exact frame";
         }
         catch (OperationCanceledException) { }
@@ -817,7 +964,9 @@ public partial class EditViewModel : ObservableObject
     private async Task SuggestSegmentsAsync()
     {
         if (_song is null || IsSuggesting) return;
-        var file = _localSourceFile ?? ResolveLocalFile();
+        var opened = _song;
+        var file = _localSourceFile ?? await ResolveLocalFileAsync();
+        if (!ReferenceEquals(_song, opened)) return;
         if (file is null) { _shell.ShowToast("This PC can't open the media file, so it can't be analysed. Add a path mapping, or do this on the Resolume PC.", warn: true); return; }
         if (!_services.Ffmpeg.IsAvailable) { _shell.ShowToast("Suggestions need ffmpeg. Choose it in Settings → Media.", warn: true); return; }
 
@@ -875,7 +1024,9 @@ public partial class EditViewModel : ObservableObject
     private async Task ReadLyricsFromVideoAsync()
     {
         if (_song is null || IsSuggesting) return;
-        var file = _localSourceFile ?? ResolveLocalFile();
+        var opened = _song;
+        var file = _localSourceFile ?? await ResolveLocalFileAsync();
+        if (!ReferenceEquals(_song, opened)) return;
         if (file is null) { _shell.ShowToast("This PC can't open the media file. Add a path mapping, or do this on the Resolume PC.", warn: true); return; }
         if (!_services.Ffmpeg.IsAvailable) { _shell.ShowToast("Reading lyrics needs ffmpeg. Choose it in Settings → Media.", warn: true); return; }
         IsSuggesting = true;
@@ -1011,7 +1162,7 @@ public partial class EditViewModel : ObservableObject
                 new AlertButton("cancel", "Cancel", AlertRole.Cancel),
                 new AlertButton("mine", "Save Mine", AlertRole.Default));
             if (choice == "mine") result = lib.SaveSong(_song, overwrite: true);
-            else if (choice == "theirs") { var again = lib.ReloadSong(_song.Id); if (again is not null) Load(again, false); return true; }
+            else if (choice == "theirs") { var again = lib.ReloadSong(_song.Id); if (again is not null) Load(Json.Deserialize<Song>(Json.Serialize(again))!, false); return true; }
             else return false;
         }
         if (!result.Ok)
@@ -1028,7 +1179,7 @@ public partial class EditViewModel : ObservableObject
         SaveStatusText = $"Saved {DateTime.Now:HH:mm}";
         RefreshSongList();
         if (wasNew) SelectSidebarSong(_song.Id);
-        if (_song is { } song) _ = GenerateThumbnailsAsync(song);
+        if (_song is { } song) _ = Safe(GenerateThumbnailsAsync(song), "Rendering thumbnails");
         return true;
     }
 
@@ -1039,7 +1190,7 @@ public partial class EditViewModel : ObservableObject
         if (_renderingThumbs) return;
         var todo = Segments.Where(s => s.ThumbNeedsUpdate).ToList();
         if (todo.Count == 0) return;
-        var file = _localSourceFile ?? ResolveLocalFile();
+        var file = _localSourceFile ?? await ResolveLocalFileAsync();
         if (file is null || !_services.Ffmpeg.IsAvailable)
         {
             foreach (var s in todo) s.ThumbStatus = file is null ? "Placeholder: the media file isn't readable here" : "Placeholder: ffmpeg isn't set up";
@@ -1067,14 +1218,33 @@ public partial class EditViewModel : ObservableObject
                 }
                 else { item.ThumbStatus = $"Placeholder ({result.Error})"; failed++; }
             }
-            if (done > 0 && !IsDirty)
+            var stillOpen = ReferenceEquals(_song, song);
+            if (done > 0 && stillOpen && !IsDirty)
             {
                 var r = lib.SaveSong(song, overwrite: false);
                 if (r.Status == SaveStatus.Conflict) Log.Warn("Thumbnail paths not saved: the song changed on disk meanwhile. Save again to keep them.");
             }
-            SaveStatusText = failed == 0 ? $"Saved {DateTime.Now:HH:mm}" : $"Saved · {failed} thumbnail{(failed == 1 ? "" : "s")} failed (see the log)";
+            else if (done > 0 && !stillOpen) SaveThumbsInto(song);
+            if (stillOpen) SaveStatusText = failed == 0 ? $"Saved {DateTime.Now:HH:mm}" : $"Saved · {failed} thumbnail{(failed == 1 ? "" : "s")} failed (see the log)";
         }
         finally { _renderingThumbs = false; }
+    }
+
+    /// <summary>Another song was opened while thumbnails rendered: record them on the saved copy of this one, without any
+    /// edits that were made to it after its save and then discarded.</summary>
+    private void SaveThumbsInto(Song rendered)
+    {
+        var lib = _services.Library;
+        if (lib.GetSong(rendered.Id) is not { } saved) return;
+        var copy = Json.Deserialize<Song>(Json.Serialize(saved))!;
+        var changed = false;
+        foreach (var seg in copy.Segments)
+        {
+            var r = rendered.Segments.FirstOrDefault(x => x.Id == seg.Id && x.StartMs == seg.StartMs && x.Thumb is not null && x.ThumbAtMs == seg.StartMs);
+            if (r is null || (seg.Thumb == r.Thumb && seg.ThumbAtMs == r.ThumbAtMs)) continue;
+            seg.Thumb = r.Thumb; seg.ThumbAtMs = r.ThumbAtMs; changed = true;
+        }
+        if (changed && lib.SaveSong(copy).Status == SaveStatus.Conflict) Log.Warn("Thumbnail paths not saved: the song changed on disk meanwhile.");
     }
 
     /// <summary>For songs saved before ffmpeg was set up, or after the media file moved: render every missing or stale thumbnail.</summary>

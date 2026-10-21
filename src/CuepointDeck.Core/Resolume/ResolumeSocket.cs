@@ -13,8 +13,10 @@ public sealed class ResolumeSocket : IDisposable
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly TaskCompletionSource<string> _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>Raw JSON text plus a Stopwatch timestamp taken the moment the message was received.</summary>
-    public event Action<string, long>? RawMessage;
+    /// <summary>One whole message as UTF-8 JSON bytes, plus a Stopwatch timestamp taken the moment it was received.
+    /// The bytes are only valid during the call: the buffer is reused for the next message, so handlers parse it there
+    /// and then (no string copy, which matters for the position stream and for multi-megabyte compositions).</summary>
+    public event Action<ReadOnlyMemory<byte>, long>? RawMessage;
 
     /// <summary>Completes with the reason when the socket closes for any reason.</summary>
     public Task<string> Closed => _closed.Task;
@@ -50,7 +52,9 @@ public sealed class ResolumeSocket : IDisposable
                 } while (!r.EndOfMessage);
 
                 var stamp = System.Diagnostics.Stopwatch.GetTimestamp();
-                RawMessage?.Invoke(Encoding.UTF8.GetString(ms.GetBuffer(), 0, (int)ms.Length), stamp);
+                RawMessage?.Invoke(new ReadOnlyMemory<byte>(ms.GetBuffer(), 0, (int)ms.Length), stamp);
+                // Don't hold on to a one-off large buffer (a big composition) for the rest of the session.
+                if (ms.Capacity > 4 * 1024 * 1024) { ms.SetLength(0); ms.Capacity = 64 * 1024; }
             }
             _closed.TrySetResult("socket no longer open");
         }

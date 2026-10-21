@@ -21,7 +21,8 @@ public partial class SegmentCardViewModel : ObservableObject
     public string ColorHex => Segment.Color;
     public string StartText => Timecode.Format(Segment.StartMs, Song.Fps);
     public string RangeText => Segment.EndMs is long e ? $"{StartText} → {Timecode.Format(e, Song.Fps)}" : StartText;
-    public BitmapImage? Thumb { get; }
+    /// <summary>Set straight away when the thumbnail is already in memory, otherwise once it has loaded in the background.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasThumb))] private BitmapImage? _thumb;
     public bool HasThumb => Thumb is not null;
     /// <summary>Keys shown beside the card's menu items, e.g. "3" and "Shift+3", following the default trigger setting.</summary>
     public string CutGesture { get; init; } = "";
@@ -43,7 +44,7 @@ public partial class SegmentCardViewModel : ObservableObject
         Segment = segment;
         Index = index;
         NumberLabel = index < 9 ? (index + 1).ToString() : index == 9 ? "0" : "";
-        Thumb = thumb;
+        _thumb = thumb;
     }
 
     [RelayCommand] private Task Cut() => _owner.FireAsync(this, Core.Settings.TriggerMode.Cut);

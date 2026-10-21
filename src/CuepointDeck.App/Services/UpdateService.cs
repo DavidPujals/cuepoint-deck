@@ -106,12 +106,14 @@ public static class UpdateService
             await using var dst = File.Create(tmp);
             var buf = new byte[81920];
             long done = 0;
-            int n;
+            int n, lastPercent = -1;
             while ((n = await src.ReadAsync(buf, ct)) > 0)
             {
                 await dst.WriteAsync(buf.AsMemory(0, n), ct);
                 done += n;
-                if (total > 0) progress?.Report((double)done / total);
+                // One report per whole percent: each one is a post to the UI thread.
+                var percent = total > 0 ? (int)(done * 100 / total) : -1;
+                if (percent != lastPercent) { lastPercent = percent; progress?.Report((double)done / total); }
             }
         }
 

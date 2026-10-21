@@ -28,7 +28,10 @@ public partial class App : Application
             args.Handled = true;
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+        {
             Log.Error($"Unhandled exception: {args.ExceptionObject}");
+            Log.Flush();   // the process may be about to end: get the cause onto disk
+        };
         TaskScheduler.UnobservedTaskException += (_, args) =>
         {
             Log.Error("Unobserved task exception", args.Exception);
@@ -120,6 +123,7 @@ public partial class App : Application
         // dispatcher and the process would never exit. Bounded so a stuck socket can't hold the app open either.
         var stopped = Task.Run(Services.StopAsync).Wait(TimeSpan.FromSeconds(3));
         Log.Info(stopped ? "Cuepoint Deck closed" : "Cuepoint Deck closed (shutdown timed out)");
+        Log.Flush();
         base.OnExit(e);
     }
 }

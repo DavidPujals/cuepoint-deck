@@ -407,31 +407,44 @@ public sealed class SegmentController : ISegmentController, IDisposable
     {
         while (!_disposed)
         {
-            QueuedSegment? q;
-            SeekProbe? probe;
-            lock (_gate) { q = _queued; probe = _probe; }
-
-            if (probe is not null && PlayheadEstimator.TicksToMs(Stopwatch.GetTimestamp() - probe.SentStamp) > VerifyWindowMs + 100 && probe.Updates == 0)
-            {
-                lock (_gate) if (ReferenceEquals(_probe, probe)) _probe = null;
-                var msg = $"Seek to {probe.Label} not confirmed: no position updates arrived";
-                Log.Warn(msg);
-                Warn(msg);
-            }
-
-            if (q is null)
-            {
-                ArmLoopIfDue();
-                lock (_gate) q = _queued;
-                if (q is null) { _wake.WaitOne(probe is null ? 500 : 100); continue; }
-            }
-
-            var waitMs = Evaluate(q);
-            if (waitMs <= 0) continue;            // fired or cleared; loop again
-            if (waitMs > 2) _wake.WaitOne((int)Math.Min(waitMs - 1, 50));
-            else Thread.SpinWait(200);
+            // An exception on this thread would end the whole app mid-service; log it and carry on instead.
+            try { TimerPass(); }
+            catch (Exception ex) { Log.Error("Queue timer", ex); Thread.Sleep(50); }
         }
     }
+
+    private void TimerPass()
+    {
+        QueuedSegment? q;
+        SeekProbe? probe;
+        lock (_gate) { q = _queued; probe = _probe; }
+
+        if (probe is not null && PlayheadEstimator.TicksToMs(Stopwatch.GetTimestamp() - probe.SentStamp) > VerifyWindowMs + 100 && probe.Updates == 0)
+        {
+            lock (_gate) if (ReferenceEquals(_probe, probe)) _probe = null;
+            var msg = $"Seek to {probe.Label} not confirmed: no position updates arrived";
+            Log.Warn(msg);
+            Warn(msg);
+        }
+
+        if (q is null)
+        {
+            ArmLoopIfDue();
+            lock (_gate) q = _queued;
+            if (q is null) { _wake.WaitOne(probe is null ? 500 : 100); return; }
+        }
+
+        var waitMs = Evaluate(q);
+        if (waitMs <= 0) return;              // fired or cleared; loop again
+        // Windows wakes timed waits on its timer tick (15.6 ms by default), so a wait can end up to a tick late.
+        // Sleep coarsely until the boundary is one tick plus a margin away, then poll without sleeping so the
+        // jump goes out on time. The precise stretch lasts at most ~20 ms per queued jump.
+        if (waitMs > PreciseWindowMs) _wake.WaitOne((int)Math.Min(waitMs - PreciseWindowMs, 50));
+        else if (!Thread.Yield()) Thread.SpinWait(64);
+    }
+
+    /// <summary>How close to a boundary the timer stops sleeping and polls instead (one Windows timer tick plus margin).</summary>
+    private const double PreciseWindowMs = 20;
 
     /// <summary>Returns ms until the next check, or 0 when the queue was fired or dropped.</summary>
     private double Evaluate(QueuedSegment q)

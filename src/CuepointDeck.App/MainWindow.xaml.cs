@@ -24,6 +24,7 @@ public partial class MainWindow : Window, Views.IDimmable
         };
         Loaded += (_, _) => Focus();
         SizeChanged += (_, _) => UpdateDensity();
+        StateChanged += (_, _) => _vm.SetMinimized(WindowState == WindowState.Minimized);
     }
 
     /// <summary>Short windows give the trigger cards the room: under 720 px the toolbar and song header condense.</summary>

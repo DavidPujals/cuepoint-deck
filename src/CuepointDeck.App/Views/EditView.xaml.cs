@@ -14,6 +14,8 @@ namespace CuepointDeck.App.Views;
 /// player and the view model's scrub position in step both ways.</summary>
 public partial class EditView : UserControl
 {
+    private static readonly System.Windows.Media.Effects.DropShadowEffect OverlayShadow = Frozen(new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 4, Opacity = 0.6, Direction = 0 });
+    private static T Frozen<T>(T f) where T : System.Windows.Freezable { f.Freeze(); return f; }
     private readonly DispatcherTimer _playTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private EditViewModel? _vm;
     private bool _mediaReady;
@@ -93,7 +95,7 @@ public partial class EditView : UserControl
             Grid.SetColumnSpan(Sidebar, 3);
             Sidebar.Width = 260;
             Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
-            Sidebar.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 4, Opacity = 0.6, Direction = 0 };
+            Sidebar.Effect = OverlayShadow;
             Sidebar.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
             Scrim.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
         }

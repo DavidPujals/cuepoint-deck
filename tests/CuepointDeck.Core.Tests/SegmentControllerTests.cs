@@ -24,7 +24,8 @@ public sealed class FakeLink : IResolumeLink
     public event Action<PositionUpdate>? PositionUpdated;
     public event Action<ClipInfo>? TransportChanged;
 
-    public Task SetPositionMsAsync(ClipInfo clip, double ms) { lock (Seeks) { Seeks.Add((clip, ms)); Order.Add($"seek {ms}"); } return Task.CompletedTask; }
+    public List<long> SeekStamps { get; } = new();
+    public Task SetPositionMsAsync(ClipInfo clip, double ms) { lock (Seeks) { Seeks.Add((clip, ms)); SeekStamps.Add(Stopwatch.GetTimestamp()); Order.Add($"seek {ms}"); } return Task.CompletedTask; }
     public Task ConnectClipAsync(ClipInfo clip) { lock (Seeks) { Connects.Add(clip); Order.Add("connect"); } return Task.CompletedTask; }
     public Task ConnectColumnAsync(int column) { lock (Seeks) { Columns.Add(column); Order.Add($"column {column}"); } return Task.CompletedTask; }
     public Task<int> SetInPointMsAsync(ClipInfo clip, double ms) { lock (Seeks) { InPoints.Add((clip, ms)); Order.Add($"in {ms}"); } return Task.FromResult(204); }
@@ -95,6 +96,21 @@ public class SegmentControllerTests : IDisposable
         Assert.Single(_link.Seeks);
         Assert.Equal(1000, _link.Seeks[0].Ms);
         Assert.Contains(_fired, f => f.Item1.Name == "Chorus" && f.Item2 == TriggerKind.Cut);
+    }
+
+    [Fact]
+    public async Task Queued_jump_goes_out_within_a_few_ms_of_its_moment_between_position_updates()
+    {
+        await _ctl.QueueAsync(_song, _song.Segments[2]);
+        var start = Stopwatch.GetTimestamp();
+        double Elapsed() => PlayheadEstimator.TicksToMs(Stopwatch.GetTimestamp() - start);
+        // Updates stop at 850 ms, so the jump (due at 1000 − 40 = 960 ms) rests on the controller's own timing.
+        while (Elapsed() < 850) { _link.Feed(_clip, Elapsed()); Thread.Sleep(10); }
+        while (Elapsed() < 1200) { lock (_link.Seeks) if (_link.Seeks.Count > 0) break; Thread.Sleep(5); }
+        long sent;
+        lock (_link.Seeks) { Assert.NotEmpty(_link.SeekStamps); sent = _link.SeekStamps[0]; }
+        var late = PlayheadEstimator.TicksToMs(sent - start) - 960;
+        Assert.InRange(late, -3, 6);
     }
 
     [Fact]
