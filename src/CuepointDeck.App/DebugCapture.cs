@@ -14,7 +14,7 @@ namespace CuepointDeck.App;
 ///   CUEPOINTDECK_SCREENSHOT=&lt;png&gt;            where to save
 ///   CUEPOINTDECK_SCREENSHOT_DELAY=&lt;s&gt;         wait before capturing (default 8)
 ///   CUEPOINTDECK_SCREENSHOT_MODE=&lt;mode&gt;      show (default) · edit · edit-setlist · edit-empty ·
-///       settings:&lt;pane&gt; · popover:connection|issues|shortcuts · menu:card|chip|row|add|more ·
+///       settings:&lt;pane&gt; · popover:connection|issues|shortcuts · menu:card|chip|row|add|more|addseg ·
 ///       sheet:quit|unsaved|delete|prompt|pick
 /// Popovers, menus and sheets are drawn onto the window capture where they would appear, so one PNG shows the whole
 /// moment. The window itself is parked off-screen and never activated (see App.ApplyDebugScreenshotSize).
@@ -56,6 +56,7 @@ internal static class DebugCapture
                 if (kind == "edit") shell.EnterEdit(services.CurrentSong ?? services.Library.Songs.FirstOrDefault());
                 else if (kind == "edit-setlist") shell.EnterEditSetlist(services.Settings.ActiveSetlist ?? services.Library.Setlists.FirstOrDefault()?.Name);
                 else shell.EnterEdit(null);
+                if (arg == "sidebar") After(600, () => shell.Edit!.ToggleSidebarCommand.Execute(null));   // edit:sidebar = with the sidebar toggled
                 After(1800, () => Save(Composite(window), path));
                 return;
 
@@ -85,18 +86,18 @@ internal static class DebugCapture
                 return;
 
             case "menu":
-                if (arg is "row" or "add" or "more") shell.EnterEdit(services.CurrentSong ?? services.Library.Songs.FirstOrDefault());
-                After(arg is "row" or "add" or "more" ? 1800 : 300, () =>
+                if (arg is "row" or "add" or "more" or "addseg") shell.EnterEdit(services.CurrentSong ?? services.Library.Songs.FirstOrDefault());
+                After(arg is "row" or "add" or "more" or "addseg" ? 1800 : 300, () =>
                 {
                     var target = FindMenuTarget(window, arg);
                     if (target?.ContextMenu is not { } menu) { Log.Warn($"Screenshot: no menu target for {arg}"); return; }
                     menu.PlacementTarget = target;
                     menu.DataContext ??= target.DataContext;
-                    if (arg is "add" or "more") menu.DataContext = target.DataContext;
+                    if (arg is "add" or "more" or "addseg") menu.DataContext = target.DataContext;
                     menu.IsOpen = true;
                     After(600, () =>
                     {
-                        var dropDown = arg is "add" or "more";
+                        var dropDown = arg is "add" or "more" or "addseg";
                         var at = target.TranslatePoint(dropDown ? new Point(0, target.ActualHeight + 4) : new Point(target.ActualWidth * 0.45, target.ActualHeight * 0.35), window);
                         // Like the real popup, open upwards when there is no room below.
                         var content = (FrameworkElement)window.Content;
@@ -180,6 +181,7 @@ internal static class DebugCapture
             if (arg == "row" && dc is ViewModels.SegmentEditItem) return fe;
             if (arg == "add" && fe.Name == "AddMenuButton") return fe;
             if (arg == "more" && fe.Name == "MoreMenuButton") return fe;
+            if (arg == "addseg" && fe.Name == "AddSegmentMenuButton") return fe;
         }
         return null;
     }

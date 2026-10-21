@@ -199,7 +199,11 @@ public partial class ShellViewModel : ObservableObject
 
     // ------------------------------------------------------------------ modes
 
-    private EditViewModel EnsureEdit() => Edit ??= new EditViewModel(_services, this, _dispatcher);
+    private EditViewModel EnsureEdit()
+    {
+        if (Edit is null) { Edit = new EditViewModel(_services, this, _dispatcher); OnPropertyChanged(nameof(Edit)); }
+        return Edit;
+    }
 
     /// <summary>Edit mode, optionally on a song and one of its segments ("Edit Segment…" on a card).</summary>
     public void EnterEdit(Song? song, string? segmentId = null)

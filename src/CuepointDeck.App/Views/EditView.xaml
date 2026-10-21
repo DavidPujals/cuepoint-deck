@@ -14,7 +14,8 @@
         <app:CountToVisibilityConverter x:Key="AnyVis"/>
         <app:CountToVisibilityConverter x:Key="NoneVis" Invert="True"/>
         <app:ImageAspectConverter x:Key="Aspect"/>
-        <app:AtLeastConverter x:Key="AtLeast"/>
+        <app:MinusConverter x:Key="Minus"/>
+        <app:LessThanConverter x:Key="LessThan"/>
         <app:SameTextMultiConverter x:Key="SameText"/>
 
         <Style x:Key="TimeBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
@@ -44,19 +45,19 @@
         </Style>
     </UserControl.Resources>
 
-    <!-- The page fills the window, so lists and the filmstrip scroll inside their own panels. Only below about 1360x720
-         of content does the whole page scroll, rather than crushing the panels. -->
-    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Focusable="False">
-    <Grid Width="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=1360}"
-          Height="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource AtLeast}, ConverterParameter=720}">
+    <!-- The page is always exactly the window: nothing is ever reached by scrolling the page. As the window narrows the
+         panels share the width, the sidebar tucks away behind the toolbar's sidebar button (and slides over the content
+         when opened), and as it gets shorter the inspector and the preview give up space first, scrolling inside
+         themselves only at the very smallest sizes. -->
+    <Grid x:Name="PageGrid">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="248"/>
-            <ColumnDefinition Width="12"/>
+            <ColumnDefinition x:Name="SidebarColumn" Width="248"/>
+            <ColumnDefinition x:Name="GapColumn" Width="12"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- ================================================================== sidebar: songs and setlists -->
-        <Border Grid.Column="0" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1" CornerRadius="10">
+        <Border x:Name="Sidebar" Grid.Column="0" Panel.ZIndex="10" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource SeparatorBrush}" BorderThickness="1" CornerRadius="10">
             <DockPanel>
                 <TextBox DockPanel.Dock="Top" Style="{StaticResource SearchBox}" app:Ui.Placeholder="Search Songs" Margin="10,10,10,6"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
@@ -159,12 +160,12 @@
         <!-- ================================================================== song editor -->
         <Grid Grid.Column="2" Visibility="{Binding IsSongView, Converter={StaticResource Vis}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="12"/>
-                <ColumnDefinition Width="400"/>
+                <ColumnDefinition Width="3*" MinWidth="320"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="2*" MinWidth="280" MaxWidth="400"/>
             </Grid.ColumnDefinitions>
 
-            <DockPanel Grid.Column="0">
+            <DockPanel x:Name="EditorColumn" Grid.Column="0">
                 <!-- header: the title edits in place; Save is the one prominent action and only lights up when there is something to save -->
                 <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="12,2,0,0">
@@ -194,8 +195,12 @@
                     </StackPanel>
                 </DockPanel>
 
-                <!-- inspector for the selected segment -->
-                <Border DockPanel.Dock="Bottom" Style="{StaticResource InsetGroup}" Padding="16,12" Margin="0,10,0,0" Visibility="{Binding SelectedSegment, Converter={StaticResource NotNullVis}}">
+                <!-- inspector for the selected segment: always on screen; on short windows it gives way to a usable
+                     segment list and scrolls inside itself -->
+                <ScrollViewer DockPanel.Dock="Bottom" Margin="0,10,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False"
+                              MaxHeight="{Binding ActualHeight, ElementName=EditorColumn, Converter={StaticResource Minus}, ConverterParameter='300,56'}"
+                              Visibility="{Binding SelectedSegment, Converter={StaticResource NotNullVis}}">
+                <Border Style="{StaticResource InsetGroup}" Padding="16,12">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="72"/>
@@ -210,12 +215,12 @@
                                   ItemsSource="{Binding QuickNamesList}" Text="{Binding SelectedSegment.Name, UpdateSourceTrigger=PropertyChanged}"
                                   ToolTip="Type any name (Bridge 2, Big Chorus), or pick one of the usual ones from the list"/>
 
-                        <TextBlock Grid.Row="1" Text="Starts" Style="{StaticResource FieldLabel}"/>
-                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBox Style="{StaticResource TimeBox}" Text="{Binding SelectedSegment.StartText}" ToolTip="hh:mm:ss:ff at the clip's frame rate. Return to apply."/>
-                            <Button Style="{StaticResource GlyphButton}" Content="&#xE738;" Margin="6,0,0,0" Command="{Binding NudgeCommand}" CommandParameter="-frame" ToolTip="One frame earlier (Shift: five)"/>
+                        <TextBlock Grid.Row="1" Text="Starts" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,6,12,0"/>
+                        <WrapPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                            <TextBox Style="{StaticResource TimeBox}" Text="{Binding SelectedSegment.StartText}" Margin="0,0,0,4" ToolTip="hh:mm:ss:ff at the clip's frame rate. Return to apply."/>
+                            <Button Style="{StaticResource GlyphButton}" Content="&#xE738;" Margin="6,0,0,4" Command="{Binding NudgeCommand}" CommandParameter="-frame" ToolTip="One frame earlier (Shift: five)"/>
                             <Button Style="{StaticResource GlyphButton}" Content="&#xE710;" Margin="2,0,0,0" Command="{Binding NudgeCommand}" CommandParameter="+frame" ToolTip="One frame later (Shift: five)"/>
-                            <Button Content="Set Start" Margin="8,0,0,0" app:Ui.DropDownMenu="True" Padding="12,4">
+                            <Button Content="Set Start" Margin="8,0,0,4" app:Ui.DropDownMenu="True" Padding="12,4">
                                 <Button.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="To Resolume's Playhead" Command="{Binding SetStartFromPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
@@ -225,13 +230,13 @@
                                     </ContextMenu>
                                 </Button.ContextMenu>
                             </Button>
-                        </StackPanel>
+                        </WrapPanel>
 
-                        <TextBlock Grid.Row="2" Text="Ends" Style="{StaticResource FieldLabel}"/>
-                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
-                            <CheckBox Content="Early" IsChecked="{Binding SelectedSegment.EndsEarly}" Margin="0,0,10,0"
+                        <TextBlock Grid.Row="2" Text="Ends" Style="{StaticResource FieldLabel}" VerticalAlignment="Top" Margin="0,6,12,0"/>
+                        <WrapPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,4">
+                            <CheckBox Content="Early" IsChecked="{Binding SelectedSegment.EndsEarly}" Margin="0,7,10,11"
                                       ToolTip="Give the segment its own end, leaving a gap before the next one that belongs to no segment"/>
-                            <StackPanel Orientation="Horizontal" Visibility="{Binding SelectedSegment.EndsEarly, Converter={StaticResource Vis}}">
+                            <WrapPanel Orientation="Horizontal" Margin="0,0,0,4" Visibility="{Binding SelectedSegment.EndsEarly, Converter={StaticResource Vis}}">
                                 <TextBox Style="{StaticResource TimeBox}" Text="{Binding SelectedSegment.EndText}"/>
                                 <Button Style="{StaticResource GlyphButton}" Content="&#xE738;" Margin="6,0,0,0" Command="{Binding NudgeEndCommand}" CommandParameter="-frame" ToolTip="One frame earlier (Shift: five)"/>
                                 <Button Style="{StaticResource GlyphButton}" Content="&#xE710;" Margin="2,0,0,0" Command="{Binding NudgeEndCommand}" CommandParameter="+frame" ToolTip="One frame later (Shift: five)"/>
@@ -245,10 +250,10 @@
                                         </ContextMenu>
                                     </Button.ContextMenu>
                                 </Button>
-                            </StackPanel>
-                            <TextBlock Text="Runs until the next segment starts" Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Center"
+                            </WrapPanel>
+                            <TextBlock Text="Runs until the next segment starts" Style="{StaticResource CaptionText}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,8"
                                        Visibility="{Binding SelectedSegment.EndsEarly, Converter={StaticResource VisInv}}"/>
-                        </StackPanel>
+                        </WrapPanel>
 
                         <TextBlock Grid.Row="3" Text="Lyric" Style="{StaticResource FieldLabel}"/>
                         <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedSegment.Lyric, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
@@ -257,11 +262,11 @@
                         <TextBlock Grid.Row="4" Text="Colour" Style="{StaticResource FieldLabel}"/>
                         <ItemsControl Grid.Row="4" Grid.Column="1" ItemsSource="{Binding PaletteList}">
                             <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Button Width="24" Height="24" MinHeight="0" Padding="0" Margin="0,0,7,0" Cursor="Hand"
+                                    <Button Width="24" Height="24" MinHeight="0" Padding="0" Margin="0,0,7,4" Cursor="Hand"
                                             Command="{Binding DataContext.SetColorCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" ToolTip="{Binding}">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
@@ -288,17 +293,47 @@
                         </ItemsControl>
                     </Grid>
                 </Border>
+                </ScrollViewer>
 
                 <!-- segments -->
-                <Border Style="{StaticResource InsetGroup}" Padding="0">
+                <Border x:Name="SegmentsGroup" Style="{StaticResource InsetGroup}" Padding="0">
                     <DockPanel>
-                        <DockPanel DockPanel.Dock="Top" Margin="16,12,12,8">
-                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Button Content="Add at Playhead" Style="{StaticResource PrimaryButton}" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"
+                        <!-- the add buttons sit beside the title; on a narrow panel they step aside and the list's + menu has them all -->
+                        <Grid DockPanel.Dock="Top" Margin="16,12,12,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <WrapPanel.Style>
+                                    <Style TargetType="WrapPanel">
+                                        <Setter Property="Grid.Column" Value="1"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ActualWidth, ElementName=SegmentsGroup, Converter={StaticResource LessThan}, ConverterParameter=380}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </WrapPanel.Style>
+                                <Button Content="Add at Playhead" Style="{StaticResource PrimaryButton}" Margin="0,0,0,4" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"
                                         ToolTip="Add a segment where Resolume's playhead is now (M). Start the clip in Resolume to mark by ear."/>
-                                <Button Content="Add at Preview" Margin="6,0,0,0" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"
-                                        ToolTip="Add a segment at the preview position (Shift+M)"/>
-                                <Button Margin="6,0,0,0" app:Ui.DropDownMenu="True" Padding="10,4" ToolTip="Fill in segments and lyric notes automatically, on this PC">
+                                <Button Content="Add at Preview" Margin="6,0,0,4" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"
+                                        ToolTip="Add a segment at the preview position (Shift+M)">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ActualWidth, ElementName=SegmentsGroup, Converter={StaticResource LessThan}, ConverterParameter=620}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Margin="6,0,0,4" app:Ui.DropDownMenu="True" Padding="10,4" ToolTip="Fill in segments and lyric notes automatically, on this PC">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE945;" Style="{StaticResource SymbolText}" FontSize="12"/>
                                         <TextBlock Text="Auto" Margin="6,0,0,0"/>
@@ -310,9 +345,18 @@
                                             <MenuItem Header="Read Lyric Notes from the Video" Command="{Binding ReadLyricsFromVideoCommand}"/>
                                         </ContextMenu>
                                     </Button.ContextMenu>
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ActualWidth, ElementName=SegmentsGroup, Converter={StaticResource LessThan}, ConverterParameter=620}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
                                 </Button>
-                            </StackPanel>
-                            <StackPanel VerticalAlignment="Center">
+                            </WrapPanel>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Segments" Style="{StaticResource HeadlineText}"/>
                                     <TextBlock Text="{Binding SegmentCountText}" Style="{StaticResource CaptionText}" FontSize="13" Margin="8,0,0,0"/>
@@ -323,7 +367,7 @@
                                     <Run Text="{Binding PlayheadHint, Mode=OneWay}"/>
                                 </TextBlock>
                             </StackPanel>
-                        </DockPanel>
+                        </Grid>
 
                         <!-- suggestion progress and the keep/discard choice -->
                         <Border DockPanel.Dock="Top" Background="#17283D" BorderBrush="#24456B" BorderThickness="1" CornerRadius="8" Margin="12,0,12,8" Padding="12,8"
@@ -344,9 +388,20 @@
 
                         <Border DockPanel.Dock="Bottom" Style="{StaticResource ListBar}">
                             <DockPanel>
-                                <Button DockPanel.Dock="Left" Style="{StaticResource BarGlyph}" Content="&#xE710;" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}" ToolTip="Add a segment at the preview position"/>
+                                <Button x:Name="AddSegmentMenuButton" DockPanel.Dock="Left" Style="{StaticResource BarGlyph}" Content="&#xE710;" app:Ui.DropDownMenu="True" ToolTip="Add segments">
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Add at Resolume's Playhead" InputGestureText="M" Command="{Binding MarkAtPlayheadCommand}" IsEnabled="{Binding PlayheadAvailable}"/>
+                                            <MenuItem Header="Add at the Preview Position" InputGestureText="Shift+M" Command="{Binding MarkAtScrubberCommand}" IsEnabled="{Binding ScrubberAvailable}"/>
+                                            <Separator/>
+                                            <MenuItem Header="Suggest Segments…" Command="{Binding SuggestSegmentsCommand}"/>
+                                            <MenuItem Header="Read Lyric Notes from the Video" Command="{Binding ReadLyricsFromVideoCommand}"/>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
                                 <Button DockPanel.Dock="Left" Style="{StaticResource BarGlyph}" Content="&#xE738;" Command="{Binding DeleteSegmentCommand}" ToolTip="Delete the selected segment (Delete). Ctrl+Z brings it back."/>
-                                <TextBlock Text="Delete removes a segment; Ctrl+Z brings it back. Nothing is saved until you press Save." Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock Text="Delete removes a segment; Ctrl+Z brings it back. Nothing is saved until you press Save." Style="{StaticResource CaptionText}" VerticalAlignment="Center" Margin="10,0,0,0"
+                                           ToolTip="Delete removes a segment; Ctrl+Z brings it back. Nothing is saved until you press Save."/>
                             </DockPanel>
                         </Border>
 
@@ -401,13 +456,14 @@
 
             <!-- ================================================================== preview -->
             <Border Grid.Column="2" Style="{StaticResource InsetGroup}" Padding="14,12">
-                <DockPanel>
+                <DockPanel x:Name="PreviewColumn">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock DockPanel.Dock="Right" Text="{Binding PreviewKind}" Style="{StaticResource CaptionText}" VerticalAlignment="Center"/>
                         <TextBlock Text="Preview" Style="{StaticResource HeadlineText}"/>
                     </DockPanel>
                     <!-- height follows the clip's shape: a 16:9 song is 16:9 here, a 2688x512 canvas is a wide strip -->
-                    <Border DockPanel.Dock="Top" Background="Black" CornerRadius="8" ClipToBounds="True">
+                    <Border DockPanel.Dock="Top" Background="Black" CornerRadius="8" ClipToBounds="True" HorizontalAlignment="Center"
+                            MaxHeight="{Binding ActualHeight, ElementName=PreviewColumn, Converter={StaticResource Minus}, ConverterParameter='200,60'}">
                         <ctl:AspectBox Ratio="{Binding PreviewAspect}">
                             <Grid>
                                 <Image Source="{Binding PreviewImage}" Stretch="Uniform" Visibility="{Binding ProxyPath, Converter={StaticResource NullVis}}"/>
@@ -418,7 +474,7 @@
                             </Grid>
                         </ctl:AspectBox>
                     </Border>
-                    <TextBlock DockPanel.Dock="Top" Text="{Binding SourceFileStatus}" Margin="2,6,2,0" TextWrapping="Wrap" MaxHeight="48"
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SourceFileStatus}" Margin="2,6,2,0" TextWrapping="Wrap" MaxHeight="32"
                                ToolTip="{Binding SourceFileStatus}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
@@ -431,14 +487,14 @@
                         </TextBlock.Style>
                     </TextBlock>
 
-                    <!-- transport -->
-                    <Grid DockPanel.Dock="Top" Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding ScrubText}" Style="{StaticResource TimecodeText}" FontSize="22" VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- transport: the timecode over the buttons, so it fits the narrowest preview -->
+                    <Grid DockPanel.Dock="Top" Margin="0,8,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{Binding ScrubText}" Style="{StaticResource TimecodeText}" FontSize="22" HorizontalAlignment="Center"/>
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
                             <Button Style="{StaticResource GlyphButton}" Content="&#xE76B;" Height="32" Width="34" Click="StepBack_Click" ToolTip="Previous frame (←, Shift: one second)"/>
                             <Button Style="{StaticResource PrimaryButton}" Margin="6,0" MinWidth="92" Command="{Binding PlayPauseCommand}" ToolTip="Space">
                                 <StackPanel Orientation="Horizontal">
@@ -522,9 +578,9 @@
 
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*" MinWidth="260"/>
                     <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="340"/>
+                    <ColumnDefinition Width="*" MinWidth="220" MaxWidth="340"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- running order -->
@@ -601,6 +657,8 @@
                 </Border>
             </Grid>
         </DockPanel>
+
+        <!-- behind the sidebar when it slides over the content on narrow windows; a click here closes it -->
+        <Border x:Name="Scrim" Grid.ColumnSpan="3" Panel.ZIndex="9" Background="#73000000" Visibility="Collapsed" MouseLeftButtonDown="Scrim_MouseLeftButtonDown"/>
     </Grid>
-    </ScrollViewer>
 </UserControl>

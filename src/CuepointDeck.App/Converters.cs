@@ -137,3 +137,26 @@ public sealed class CountToVisibilityConverter : IValueConverter
     }
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
 }
+
+/// <summary>value − ConverterParameter, never below a floor ("280" or "280,60"; default floor 0). Gives a panel the
+/// space left after its neighbours' minimums, so it shrinks (and scrolls inside) instead of pushing them off-screen.</summary>
+public sealed class MinusConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var v = value is double d && !double.IsNaN(d) ? d : 0;
+        var parts = (parameter?.ToString() ?? "0").Split(',');
+        var minus = double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var m) ? m : 0;
+        var floor = parts.Length > 1 && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var f) ? f : 0;
+        return Math.Max(floor, v - minus);
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
+/// <summary>True when a width is below ConverterParameter: lets a row of buttons drop under its title on narrow panels.</summary>
+public sealed class LessThanConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is double d && d > 0 && double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var t) && d < t;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotSupportedException();
+}

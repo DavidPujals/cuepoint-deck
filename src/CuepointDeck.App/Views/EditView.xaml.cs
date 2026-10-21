@@ -24,6 +24,7 @@ public partial class EditView : UserControl
         DataContextChanged += (_, e) => Attach(e.OldValue as EditViewModel, e.NewValue as EditViewModel);
         _playTimer.Tick += (_, _) => PullPositionFromPlayer();
         Unloaded += (_, _) => { _playTimer.Stop(); try { Player.Stop(); Player.Source = null; } catch { } };
+        SizeChanged += (_, _) => { if (_vm is not null) _vm.IsNarrow = ActualWidth < NarrowWidth; LayoutSidebar(); };
     }
 
     private void Attach(EditViewModel? old, EditViewModel? vm)
@@ -32,6 +33,8 @@ public partial class EditView : UserControl
         _vm = vm;
         if (vm is null) return;
         vm.PropertyChanged += Vm_PropertyChanged;
+        if (ActualWidth > 0) vm.IsNarrow = ActualWidth < NarrowWidth;
+        LayoutSidebar();
         LoadProxy(vm.ProxyPath);
     }
 
@@ -40,6 +43,11 @@ public partial class EditView : UserControl
         if (_vm is null) return;
         switch (e.PropertyName)
         {
+            case nameof(EditViewModel.IsSidebarOpen):
+            case nameof(EditViewModel.IsNarrow):
+            case nameof(EditViewModel.IsOverlayOpen):
+                LayoutSidebar();
+                break;
             case nameof(EditViewModel.ProxyPath):
                 LoadProxy(_vm.ProxyPath);
                 break;
@@ -54,6 +62,47 @@ public partial class EditView : UserControl
                     Player.Position = TimeSpan.FromMilliseconds(_vm.ScrubMs);
                 break;
         }
+    }
+
+    /// <summary>Below this width the sidebar stops taking a column and slides over the content instead.</summary>
+    private const double NarrowWidth = 1000;
+
+    /// <summary>Wide: the sidebar is a column (hidden with the toolbar's sidebar button). Narrow: no column; the
+    /// button slides it over the content with a dimmed scrim behind, and choosing something closes it.</summary>
+    private void LayoutSidebar()
+    {
+        var vm = _vm;
+        var narrow = vm?.IsNarrow ?? false;
+        if (!narrow)
+        {
+            var open = vm?.IsSidebarOpen ?? true;
+            SidebarColumn.Width = new GridLength(open ? 248 : 0);
+            GapColumn.Width = new GridLength(open ? 12 : 0);
+            Grid.SetColumnSpan(Sidebar, 1);
+            Sidebar.Width = double.NaN;
+            Sidebar.HorizontalAlignment = HorizontalAlignment.Stretch;
+            Sidebar.Effect = null;
+            Sidebar.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            Scrim.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            var open = vm?.IsOverlayOpen ?? false;
+            SidebarColumn.Width = new GridLength(0);
+            GapColumn.Width = new GridLength(0);
+            Grid.SetColumnSpan(Sidebar, 3);
+            Sidebar.Width = 260;
+            Sidebar.HorizontalAlignment = HorizontalAlignment.Left;
+            Sidebar.Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 24, ShadowDepth = 4, Opacity = 0.6, Direction = 0 };
+            Sidebar.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            Scrim.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void Scrim_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_vm is not null) _vm.IsOverlayOpen = false;
+        e.Handled = true;
     }
 
     private void LoadProxy(string? path)

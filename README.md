@@ -159,6 +159,13 @@ Keys (only while the Cuepoint Deck window has focus; nothing is global because R
 Edit mode never sends anything to Resolume, so it is safe during a service. It is laid out like a library app: a
 sidebar of **Songs** (with search) and **Setlists**, and the editor for whichever you select.
 
+It always fits the window; nothing is reached by scrolling the page. The sidebar button at the toolbar's leading edge
+hides the sidebar; below about 1000 px wide the sidebar tucks away on its own and that button slides it over the
+editor (choosing a song or setlist, a click beside it, or Esc puts it away). The editor and the preview share the width,
+the preview picture gives up height before its controls do, and on short windows the segment inspector keeps a usable
+list above it and scrolls inside itself. When the segments panel is narrow, Add at Preview and Auto step aside; the
+list's **+** menu always has every way to add segments.
+
 - **+** at the bottom of the sidebar: **New Song from Resolume…** (a sheet listing the columns on the song layer, named
   after the column; columns already in the library are marked and open the existing song instead of duplicating it),
   **New Song from File…**, and **New Setlist…**. If Resolume isn't connected, New Song from Resolume says so and

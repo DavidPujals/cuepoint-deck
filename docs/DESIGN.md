@@ -85,7 +85,11 @@ and live where they are used: the pin, the setlist, the card size (Ctrl + / −)
 - **Empty states** say what the area is for and offer the action that fills it.
 - **One prominent action per view**: Save in the song header (lit only with unsaved changes), Add at Playhead over the
   segments, Use in Show Mode on a setlist.
-- Lists have the Mac's **+ − bar** underneath. The inspector replaces rows of nudge buttons with a stepper and a
+- **It always fits the window.** Panels share the width instead of overflowing it. The sidebar has a toggle in the
+  toolbar and, on narrow windows, slides over the content instead of taking a column (as sidebars do on iPad and in
+  narrow Mac windows). As space runs out, secondary controls step aside before primary ones, and inner panels scroll
+  inside themselves; the page itself never scrolls.
+- Lists have the Mac's **+ − bar** underneath; the segments list's **+** is a menu with every way to add. The inspector replaces rows of nudge buttons with a stepper and a
   **Set** pull-down, a combo box for names, a checkbox that reveals the optional end time, and a ringed swatch for the
   current colour.
 

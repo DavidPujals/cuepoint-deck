@@ -167,6 +167,21 @@ public partial class EditViewModel : ObservableObject
     public SetlistsViewModel Setlists { get; }
     [ObservableProperty] private string? _selectedSetlistName;
 
+    // ---- sidebar: docked on wide windows (and can be hidden), slides over the content on narrow ones
+    [ObservableProperty] private bool _isSidebarOpen = true;
+    [ObservableProperty] private bool _isNarrow;
+    [ObservableProperty] private bool _isOverlayOpen;
+    partial void OnIsNarrowChanged(bool value) { if (!value) IsOverlayOpen = false; }
+
+    [RelayCommand]
+    private void ToggleSidebar()
+    {
+        if (IsNarrow) IsOverlayOpen = !IsOverlayOpen;
+        else IsSidebarOpen = !IsSidebarOpen;
+    }
+
+    private void CloseOverlay() { if (IsNarrow) IsOverlayOpen = false; }
+
     /// <summary>What the content area shows: "song", "setlist" or "empty".</summary>
     [ObservableProperty] private string _view = "empty";
     public bool IsSongView => View == "song";
@@ -270,6 +285,7 @@ public partial class EditViewModel : ObservableObject
     partial void OnSelectedSongItemChanged(SongListItem? value)
     {
         if (_suppressSelect || value is null) return;
+        CloseOverlay();
         ClearSetlistSelection();
         if (_song is not null && value.Song.Id == _song.Id) { View = "song"; return; }
         if (!ConfirmDiscard())
@@ -287,6 +303,7 @@ public partial class EditViewModel : ObservableObject
     partial void OnSelectedSetlistNameChanged(string? value)
     {
         if (_suppressSelect || value is null) return;
+        CloseOverlay();
         IsPlaying = false;
         _suppressSelect = true;
         SelectedSongItem = null;
@@ -766,7 +783,13 @@ public partial class EditViewModel : ObservableObject
         var shift = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
         var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
         if (ctrl && e.Key == Key.Z) { if (IsSongView) UndoDeleteCommand.Execute(null); return true; }
-        if (e.Key == Key.Escape) { if (IsPlaying) { IsPlaying = false; return true; } _shell.BackToShow(); return true; }
+        if (e.Key == Key.Escape)
+        {
+            if (IsOverlayOpen) { IsOverlayOpen = false; return true; }
+            if (IsPlaying) { IsPlaying = false; return true; }
+            _shell.BackToShow();
+            return true;
+        }
         if (e.Key == Key.Delete || e.Key == Key.Back)
         {
             if (IsSongView) DeleteSegmentCommand.Execute(null);

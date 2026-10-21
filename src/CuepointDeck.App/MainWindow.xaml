@@ -110,8 +110,11 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- leading: connection status, a pill that opens its details -->
-                <ToggleButton Grid.Column="0" x:Name="ConnectionPill" Style="{StaticResource ToolbarButton}" Padding="10,4" Margin="0,0,10,0"
+                <!-- leading: in Edit mode the sidebar button, then connection status (a pill that opens its details) -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Button Style="{StaticResource IconButton}" app:Ui.Icon="&#xE8A0;" Margin="0,0,4,0" Command="{Binding Edit.ToggleSidebarCommand}"
+                        Visibility="{Binding IsEditMode, Converter={StaticResource Vis}}" ToolTip="Show or hide the sidebar"/>
+                <ToggleButton x:Name="ConnectionPill" Style="{StaticResource ToolbarButton}" Padding="10,4" Margin="0,0,10,0"
                               IsChecked="{Binding IsConnectionPopoverOpen, Mode=TwoWay}" IsHitTestVisible="{Binding IsOpen, ElementName=ConnectionPopup, Converter={StaticResource Not}}"
                               ToolTip="Connection to Resolume">
                     <StackPanel Orientation="Horizontal">
@@ -119,6 +122,7 @@
                         <TextBlock Text="{Binding ConnectionText}" FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </ToggleButton>
+                </StackPanel>
                 <Popup x:Name="ConnectionPopup" Style="{StaticResource PopoverPopup}" PlacementTarget="{Binding ElementName=ConnectionPill}" IsOpen="{Binding IsConnectionPopoverOpen, Mode=TwoWay}">
                     <Border Style="{StaticResource Popover}" Width="330">
                         <StackPanel>
@@ -165,7 +169,21 @@
                         </Style>
                     </ContentControl.Style>
                 </ContentControl>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding IsEditMode, Converter={StaticResource Vis}}">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsEditMode}" Value="True"/>
+                                        <Condition Binding="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Wide}, ConverterParameter=1000}" Value="Visible"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <TextBlock Text="&#xE70F;" Style="{StaticResource SymbolText}" FontSize="12" Foreground="{StaticResource TertiaryBrush}"/>
                     <TextBlock Text="Editing. Nothing here is sent to Resolume." Style="{StaticResource CaptionText}" FontSize="12" Margin="7,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
