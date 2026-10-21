@@ -20,6 +20,10 @@ public static class ChildProcessJob
         try { AssignProcessToJobObject(job, process.Handle); } catch { /* best effort: the process still runs */ }
     }
 
+    /// <summary>True when the process is in this app's job (for tests and diagnostics).</summary>
+    public static bool Contains(Process process)
+        => OperatingSystem.IsWindows() && Job.Value != IntPtr.Zero && IsProcessInJob(process.Handle, Job.Value, out var inJob) && inJob;
+
     private static IntPtr Create()
     {
         if (!OperatingSystem.IsWindows()) return IntPtr.Zero;
@@ -84,4 +88,6 @@ public static class ChildProcessJob
     private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool CloseHandle(IntPtr handle);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool result);
 }
